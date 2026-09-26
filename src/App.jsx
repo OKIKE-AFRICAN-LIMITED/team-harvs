@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import Lenis from 'lenis';
 import { gsap } from 'gsap';
+import { SelectedWorksGallery } from '@/components/SelectedWorksGallery';
 
 export default function App() {
   const [isJoinOpen, setIsJoinOpen] = useState(false);
@@ -562,44 +563,11 @@ export default function App() {
           </div>
         </section>
 
-        {/* SECTION: LOOKBOOK — Warm Sand Canvas */}
-        <section className="section-lookbook" id="work">
-          <div className="container">
-            <span className="label-burgundy">03 / Selected Works</span>
-            
-            <div className="lookbook-grid-editorial">
-              <div className="editorial-card">
-                <div className="editorial-frame">
-                  <img src="/assets/images/campaign_lookbook.jpg" alt="Commercial Campaign" />
-                </div>
-                <div className="editorial-card-info">
-                  <span>Commercial Projects & Campaigns</span>
-                  <span>Issue 01</span>
-                </div>
-              </div>
-
-              <div className="editorial-card">
-                <div className="editorial-frame editorial-frame-tall">
-                  <img src="/assets/images/model_portrait.jpg" alt="Model Development" />
-                </div>
-                <div className="editorial-card-info">
-                  <span>Model Development</span>
-                  <span>Dossier</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="editorial-card editorial-bts-wide">
-              <div className="editorial-frame">
-                <img src="/assets/images/creative_production_bts.jpg" alt="Creative Production BTS" />
-              </div>
-              <div className="editorial-card-info">
-                <span>Creative Productions & BTS Cinematography</span>
-                <span>On Set / Akwa Ibom</span>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* SECTION: SELECTED WORKS — 3D Perspective Animated Gallery */}
+        <SelectedWorksGallery
+          onOpenJoin={() => setIsJoinOpen(true)}
+          onSelectPreview={(item) => setSelectedPreviewImage(item)}
+        />
 
         {/* SECTION: THE COLLECTIVE — Burgundy & Sand */}
         <section className="section-collective" id="collective">
@@ -702,7 +670,7 @@ export default function App() {
                     <option value="MUA">Makeup Artist (MUA)</option>
                     <option value="Videographer">Videographer / BTS Creator</option>
                     <option value="Assistant">Creative Assistant</option>
-                    <option value="Photograher">Photographer</option>
+                    <option value="Photographer">Photographer</option>
                   </select>
                 </div>
 
