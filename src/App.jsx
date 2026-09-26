@@ -697,12 +697,12 @@ export default function App() {
                   <label>Creative Discipline</label>
                   <select required defaultValue="">
                     <option value="" disabled>Select discipline...</option>
-                    <option value="model">Fashion / Commercial Model</option>
-                    <option value="stylist">Wardrobe / Editorial Stylist</option>
-                    <option value="mua">Makeup Artist (MUA)</option>
-                    <option value="videographer">Videographer / BTS Creator</option>
-                    <option value="assistant">Creative Assistant</option>
-                    <option value="collaborator">Other Collaborator</option>
+                    <option value="Model">Fashion / Commercial Model</option>
+                    <option value="Stylist">Wardrobe / Editorial Stylist</option>
+                    <option value="MUA">Makeup Artist (MUA)</option>
+                    <option value="Videographer">Videographer / BTS Creator</option>
+                    <option value="Assistant">Creative Assistant</option>
+                    <option value="Photograher">Other Collaborator</option>
                   </select>
                 </div>
 
