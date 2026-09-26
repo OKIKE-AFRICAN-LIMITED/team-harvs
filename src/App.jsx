@@ -369,21 +369,6 @@ export default function App() {
           <div className="container hero-container-relative">
             
             {/* Top Coordinates Bar with Live Production Ticker */}
-            <div className="hero-top-info">
-              <div className="hero-coordinates">
-                <span>[ 05°02'N · 07°55'E ]</span>
-                <span className="coord-dot">/</span>
-                <span>UYO, AKWA IBOM</span>
-                <span className="coord-dot">/</span>
-                <span className="hero-est-tag">EST. 2026 // CREATIVE COLLECTIVE</span>
-              </div>
-              <div className="hero-live-badge" title="Live Continuous Production Reel">
-                <span className="live-pulse-bars">
-                  <span></span><span></span><span></span><span></span>
-                </span>
-                <span>CONTINUOUS REEL // 12 LOOKS ACTIVE</span>
-              </div>
-            </div>
 
             {/* Monumental Headline Block with GSAP Split Masks */}
             <div className="hero-brand-block">
@@ -392,7 +377,7 @@ export default function App() {
                   <span className="hero-title-word word-team">Team</span>
                 </span>
                 <span className="hero-title-mask">
-                  <span className="hero-title-word word-harvs">Harvs</span>
+                  <span className="hero-title-word word-team">Harvs</span>
                 </span>
               </h1>
               
