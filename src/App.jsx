@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Lenis from 'lenis';
+import { gsap } from 'gsap';
 
 export default function App() {
   const [isJoinOpen, setIsJoinOpen] = useState(false);
@@ -8,6 +9,15 @@ export default function App() {
   
   // Interactive Hero Production Switcher
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
+  const [isReelPaused, setIsReelPaused] = useState(false);
+
+  // GSAP Animation Refs
+  const heroRef = useRef(null);
+  const spotlightRef = useRef(null);
+  const watermarkRef = useRef(null);
+  const mainFrameRef = useRef(null);
+  const mainImgRef = useRef(null);
+  const captionRef = useRef(null);
 
   const heroProductions = [
     {
@@ -38,6 +48,142 @@ export default function App() {
       credits: 'Lead Cinematographer & BTS Crew'
     }
   ];
+
+  // Auto-play production reel with pause-on-hover
+  useEffect(() => {
+    if (isReelPaused) return;
+    const interval = setInterval(() => {
+      setActiveHeroIndex((prev) => (prev + 1) % heroProductions.length);
+    }, 5500);
+    return () => clearInterval(interval);
+  }, [isReelPaused, heroProductions.length]);
+
+  // GSAP Hero Entrance Animations
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({ defaults: { ease: 'power4.out' } });
+
+      // 1. Coordinates & top info
+      tl.fromTo('.hero-top-info',
+        { opacity: 0, y: -24 },
+        { opacity: 1, y: 0, duration: 1.1 }
+      );
+
+      // 2. Split masked title reveal
+      tl.fromTo('.hero-title-word',
+        { yPercent: 120, rotate: 1.5 },
+        { yPercent: 0, rotate: 0, duration: 1.3, stagger: 0.16 },
+        '-=0.7'
+      );
+
+      // 3. Marquee ticker strip
+      tl.fromTo('.hero-marquee-wrapper',
+        { opacity: 0, scaleY: 0 },
+        { opacity: 1, scaleY: 1, duration: 0.8, transformOrigin: 'top' },
+        '-=0.8'
+      );
+
+      // 4. Main showcase frame 3D pop & scale
+      tl.fromTo('.hero-main-frame',
+        { opacity: 0, y: 40, scale: 0.94 },
+        { opacity: 1, y: 0, scale: 1, duration: 1.2 },
+        '-=0.6'
+      );
+
+      // 5. Side column items
+      tl.fromTo('.hero-production-switcher, .hero-thumb-card',
+        { opacity: 0, x: 35 },
+        { opacity: 1, x: 0, duration: 1, stagger: 0.18 },
+        '-=0.9'
+      );
+
+      // 6. Bottom actions & cues
+      tl.fromTo('.hero-bottom-actions',
+        { opacity: 0, y: 25 },
+        { opacity: 1, y: 0, duration: 0.9 },
+        '-=0.7'
+      );
+    }, heroRef);
+
+    return () => ctx.revert();
+  }, []);
+
+  // GSAP Transition on Production Switch
+  useEffect(() => {
+    if (mainImgRef.current && captionRef.current) {
+      gsap.fromTo(mainImgRef.current,
+        { opacity: 0.25, scale: 1.09, filter: 'contrast(1.2) brightness(1.2)' },
+        { opacity: 1, scale: 1, filter: 'contrast(1) brightness(1)', duration: 0.85, ease: 'power3.out' }
+      );
+      gsap.fromTo(captionRef.current,
+        { opacity: 0, y: 16 },
+        { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' }
+      );
+    }
+  }, [activeHeroIndex]);
+
+  // GSAP Interactive 3D Mouse Parallax & Ambient Spotlight
+  const handleMouseMove = (e) => {
+    if (!heroRef.current) return;
+    const rect = heroRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    // Ambient spotlight tracking
+    if (spotlightRef.current) {
+      gsap.to(spotlightRef.current, {
+        x: x,
+        y: y,
+        duration: 0.5,
+        ease: 'power2.out'
+      });
+    }
+
+    // 3D Perspective Tilt on Main Frame (Desktop only)
+    if (mainFrameRef.current && window.innerWidth >= 992) {
+      const rotateX = ((y - centerY) / centerY) * -4.5;
+      const rotateY = ((x - centerX) / centerX) * 4.5;
+      gsap.to(mainFrameRef.current, {
+        rotateX: rotateX,
+        rotateY: rotateY,
+        duration: 0.7,
+        ease: 'power2.out',
+        transformPerspective: 1200,
+        transformStyle: 'preserve-3d'
+      });
+    }
+
+    // Watermark Monogram Parallax
+    if (watermarkRef.current) {
+      gsap.to(watermarkRef.current, {
+        x: ((x - centerX) / centerX) * -22,
+        y: ((y - centerY) / centerY) * -16,
+        duration: 1.2,
+        ease: 'power2.out'
+      });
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (mainFrameRef.current) {
+      gsap.to(mainFrameRef.current, {
+        rotateX: 0,
+        rotateY: 0,
+        duration: 1,
+        ease: 'power3.out'
+      });
+    }
+    if (watermarkRef.current) {
+      gsap.to(watermarkRef.current, {
+        x: 0,
+        y: 0,
+        duration: 1.2,
+        ease: 'power3.out'
+      });
+    }
+  };
 
   // Initialize Lenis Smooth Scroll
   useEffect(() => {
@@ -197,74 +343,123 @@ export default function App() {
       <main>
         
         {/* =================================================================
-            MASTER HIGH-FASHION EDITORIAL HERO SECTION
+            MASTER HIGH-FASHION EDITORIAL HERO SECTION WITH GSAP
             ================================================================= */}
-        <section className="hero-editorial">
-          <div className="container">
+        <section 
+          className="hero-editorial" 
+          ref={heroRef}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+        >
+          {/* GSAP Ambient Glow Spotlight */}
+          <div className="hero-spotlight" ref={spotlightRef} aria-hidden="true"></div>
+
+          {/* GSAP Architectural Watermark Monogram */}
+          <div className="hero-watermark" ref={watermarkRef} aria-hidden="true">
+            <img src="/assets/th-monogram-cream.png" alt="" />
+          </div>
+
+          <div className="container hero-container-relative">
             
-            {/* Top Coordinates Bar */}
+            {/* Top Coordinates Bar with Live Production Ticker */}
             <div className="hero-top-info">
               <div className="hero-coordinates">
                 <span>[ 05°02'N · 07°55'E ]</span>
+                <span className="coord-dot">/</span>
                 <span>UYO, AKWA IBOM</span>
+                <span className="coord-dot">/</span>
+                <span className="hero-est-tag">EST. 2026 // CREATIVE COLLECTIVE</span>
               </div>
-              <div>
-                <span>EST. 2026 // CREATIVE COLLECTIVE</span>
+              <div className="hero-live-badge" title="Live Continuous Production Reel">
+                <span className="live-pulse-bars">
+                  <span></span><span></span><span></span><span></span>
+                </span>
+                <span>LIVE REEL // {currentHero.id} OF 03</span>
               </div>
             </div>
 
-            {/* Monumental Headline Block */}
+            {/* Monumental Headline Block with GSAP Split Masks */}
             <div className="hero-brand-block">
               <h1 className="hero-display-title">
-                <span>Team</span>
-                <span>Harvs</span>
+                <span className="hero-title-mask">
+                  <span className="hero-title-word word-team">Team</span>
+                </span>
+                <span className="hero-title-mask">
+                  <span className="hero-title-word word-harvs">Harvs</span>
+                </span>
               </h1>
-              <div className="hero-philosophy-ribbon">
-                <span>Think</span>
-                <span className="dot">·</span>
-                <span>Create</span>
-                <span className="dot">·</span>
-                <span>Learn</span>
-                <span className="dot">·</span>
-                <span>Execute</span>
-                <span className="dot">·</span>
-                <span>Grow</span>
+              
+              {/* Kinetic Infinity Editorial Marquee */}
+              <div className="hero-marquee-wrapper">
+                <div className="hero-marquee-track">
+                  <span>THINK</span> <span className="star">✦</span>
+                  <span>CREATE</span> <span className="star">✦</span>
+                  <span>LEARN</span> <span className="star">✦</span>
+                  <span>EXECUTE</span> <span className="star">✦</span>
+                  <span>GROW</span> <span className="star">✦</span>
+                  <span>FASHION EDITORIALS</span> <span className="star">✦</span>
+                  <span>COMMERCIAL CAMPAIGNS</span> <span className="star">✦</span>
+                  <span>MODEL DEVELOPMENT</span> <span className="star">✦</span>
+                  <span>35MM MOTION</span> <span className="star">✦</span>
+                  <span>UYO / AKWA IBOM</span> <span className="star">✦</span>
+                  <span>THINK</span> <span className="star">✦</span>
+                  <span>CREATE</span> <span className="star">✦</span>
+                  <span>LEARN</span> <span className="star">✦</span>
+                  <span>EXECUTE</span> <span className="star">✦</span>
+                  <span>GROW</span> <span className="star">✦</span>
+                  <span>FASHION EDITORIALS</span> <span className="star">✦</span>
+                  <span>COMMERCIAL CAMPAIGNS</span> <span className="star">✦</span>
+                  <span>MODEL DEVELOPMENT</span> <span className="star">✦</span>
+                  <span>35MM MOTION</span> <span className="star">✦</span>
+                  <span>UYO / AKWA IBOM</span> <span className="star">✦</span>
+                </div>
               </div>
             </div>
 
             {/* Asymmetric Magazine Stage */}
-            <div className="hero-showcase-stage">
+            <div 
+              className="hero-showcase-stage"
+              onMouseEnter={() => setIsReelPaused(true)}
+              onMouseLeave={() => setIsReelPaused(false)}
+            >
               
-              {/* Main Cinematic Feature Frame */}
-              <div className="hero-main-frame">
-                <span className="hero-frame-tag">{currentHero.tag}</span>
+              {/* Main Cinematic Feature Frame with 3D Tilt */}
+              <div className="hero-main-frame" ref={mainFrameRef}>
+                <div className="hero-frame-glass-shine" aria-hidden="true"></div>
+                <div className="hero-frame-top-bar">
+                  <span className="hero-frame-tag">{currentHero.tag}</span>
+                  <span className="hero-reel-badge">AUTOPLAY ACTIVE {isReelPaused ? '(PAUSED)' : ''}</span>
+                </div>
+                
                 <img 
+                  ref={mainImgRef}
                   key={currentHero.id}
                   src={currentHero.image} 
                   alt={currentHero.title} 
                   className="hero-main-img" 
                 />
-                <div className="hero-frame-caption">
+                
+                <div className="hero-frame-caption" ref={captionRef}>
                   <div>
+                    <div className="hero-caption-number">{currentHero.id} // PRODUCTION</div>
                     <div className="hero-caption-title">{currentHero.title}</div>
                     <div className="hero-caption-sub">{currentHero.category}</div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.68rem', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--sand)' }}>
-                      {currentHero.location}
-                    </div>
+                  <div className="hero-caption-meta">
+                    <div className="hero-location-tag">{currentHero.location}</div>
+                    <div className="hero-credits-tag">{currentHero.credits}</div>
                   </div>
                 </div>
               </div>
 
-              {/* Side Column: Interactive Switcher & Talent Spot */}
+              {/* Side Column: Interactive Switcher & Talent Dossier */}
               <div className="hero-side-editorial">
                 
                 {/* Production Switcher Box */}
                 <div className="hero-production-switcher">
                   <div className="switcher-heading">
-                    <span>Featured Productions</span>
-                    <span>{currentHero.id} / 03</span>
+                    <span className="switcher-heading-label">Featured Productions</span>
+                    <span className="switcher-counter">{currentHero.id} / 03</span>
                   </div>
                   
                   <div className="switcher-list">
@@ -274,13 +469,18 @@ export default function App() {
                         className={`switcher-btn ${activeHeroIndex === idx ? 'active' : ''}`}
                         onClick={() => setActiveHeroIndex(idx)}
                       >
-                        <div>
+                        <div className="switcher-btn-content">
                           <div className="switcher-btn-title">{item.title}</div>
                           <div className="switcher-btn-cat">{item.category}</div>
                         </div>
-                        <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-display)', color: 'var(--sand)' }}>
-                          {item.id}
-                        </span>
+                        <span className="switcher-btn-num">{item.id}</span>
+
+                        {/* Animated Timer Progress Bar for active slide */}
+                        {activeHeroIndex === idx && (
+                          <div className={`switcher-progress-track ${isReelPaused ? 'paused' : ''}`}>
+                            <div className="switcher-progress-fill"></div>
+                          </div>
+                        )}
                       </button>
                     ))}
                   </div>
@@ -293,7 +493,10 @@ export default function App() {
                     alt="Talent Roster Portrait" 
                     className="hero-thumb-img" 
                   />
-                  <span className="hero-thumb-tag">Model Development Dossier</span>
+                  <div className="hero-thumb-overlay">
+                    <span className="hero-thumb-tag">Model Development Dossier</span>
+                    <span className="hero-thumb-status">Roster 2026</span>
+                  </div>
                 </div>
 
               </div>
@@ -317,7 +520,7 @@ export default function App() {
               <div className="scroll-cue">
                 <span>Explore Works</span>
                 <span className="scroll-line"></span>
-                <span>↓</span>
+                <span className="scroll-arrow">↓</span>
               </div>
             </div>
 
