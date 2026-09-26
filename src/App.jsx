@@ -7,56 +7,108 @@ export default function App() {
   const [submitted, setSubmitted] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   
-  // Interactive Hero Production Switcher
-  const [activeHeroIndex, setActiveHeroIndex] = useState(0);
-  const [isReelPaused, setIsReelPaused] = useState(false);
+  // Kinetic Stream State
+  const [isStreamPaused, setIsStreamPaused] = useState(false);
+  const [selectedPreviewImage, setSelectedPreviewImage] = useState(null);
 
-  // GSAP Animation Refs
-  const heroRef = useRef(null);
-  const spotlightRef = useRef(null);
-  const watermarkRef = useRef(null);
-  const mainFrameRef = useRef(null);
-  const mainImgRef = useRef(null);
-  const captionRef = useRef(null);
-
-  const heroProductions = [
+  // 3-Row Dynamic Editorial Gallery Data
+  const streamRow1 = [
     {
       id: '01',
       title: 'Solitude in Crimson',
       category: 'Fashion & Editorial Tailoring',
       image: '/assets/images/editorial_hero.jpg',
-      tag: 'Issue 01 // Autumn 2026',
-      location: 'Studio Harvs / Akwa Ibom',
-      credits: 'Tailoring & Direction by Harvs'
+      tag: 'Look 01 // Autumn'
     },
     {
       id: '02',
-      title: 'Urban Concrete',
-      category: 'Commercial Campaign Lookbook',
-      image: '/assets/images/campaign_lookbook.jpg',
-      tag: 'Issue 02 // Commercial',
-      location: 'Metropolitan Set',
-      credits: 'Wardrobe & Art Direction by Team Harvs'
+      title: 'Double-Breasted Cut',
+      category: 'Avant-Garde Silhouette',
+      image: '/assets/images/avant_garde_fashion.jpg',
+      tag: 'Look 02 // Tailoring'
     },
     {
       id: '03',
-      title: 'The Studio Process',
-      category: 'BTS & Cinema Motion',
-      image: '/assets/images/creative_production_bts.jpg',
-      tag: 'Issue 03 // 35mm Motion',
-      location: 'Daylight Studio',
-      credits: 'Lead Cinematographer & BTS Crew'
+      title: 'Urban Concrete',
+      category: 'Commercial Campaign Lookbook',
+      image: '/assets/images/campaign_lookbook.jpg',
+      tag: 'Look 03 // Commercial'
+    },
+    {
+      id: '04',
+      title: 'Model Development',
+      category: 'Editorial Talent Dossier',
+      image: '/assets/images/model_portrait.jpg',
+      tag: 'Look 04 // Roster'
     }
   ];
 
-  // Auto-play production reel with pause-on-hover
-  useEffect(() => {
-    if (isReelPaused) return;
-    const interval = setInterval(() => {
-      setActiveHeroIndex((prev) => (prev + 1) % heroProductions.length);
-    }, 5500);
-    return () => clearInterval(interval);
-  }, [isReelPaused, heroProductions.length]);
+  const streamRow2 = [
+    {
+      id: '05',
+      title: 'Architectural Motion',
+      category: 'High-Fashion Outerwear',
+      image: '/assets/images/fashion_motion_still.jpg',
+      tag: 'Look 05 // Movement'
+    },
+    {
+      id: '06',
+      title: 'Studio Process',
+      category: 'BTS & 35mm Cinema Motion',
+      image: '/assets/images/creative_production_bts.jpg',
+      tag: 'Look 06 // 35mm Motion'
+    },
+    {
+      id: '07',
+      title: 'Burgundy & Cream',
+      category: 'Color Direction & Form',
+      image: '/assets/images/avant_garde_fashion.jpg',
+      tag: 'Look 07 // Direction'
+    },
+    {
+      id: '08',
+      title: 'Akwa Ibom Set',
+      category: 'Studio Harvs Production',
+      image: '/assets/images/editorial_hero.jpg',
+      tag: 'Look 08 // Set Design'
+    }
+  ];
+
+  const streamRow3 = [
+    {
+      id: '09',
+      title: 'Metropolitan Set',
+      category: 'Commercial Series Lookbook',
+      image: '/assets/images/campaign_lookbook.jpg',
+      tag: 'Look 09 // Series'
+    },
+    {
+      id: '10',
+      title: 'Editorial Duo',
+      category: 'Coat Architecture',
+      image: '/assets/images/fashion_motion_still.jpg',
+      tag: 'Look 10 // Dynamic'
+    },
+    {
+      id: '11',
+      title: 'Roster Cast',
+      category: 'Model Development Scouting',
+      image: '/assets/images/model_portrait.jpg',
+      tag: 'Look 11 // Scouting'
+    },
+    {
+      id: '12',
+      title: 'Daylight Cinema',
+      category: 'BTS Cinematography',
+      image: '/assets/images/creative_production_bts.jpg',
+      tag: 'Look 12 // Cinema'
+    }
+  ];
+
+  // GSAP Animation Refs
+  const heroRef = useRef(null);
+  const spotlightRef = useRef(null);
+  const watermarkRef = useRef(null);
 
   // GSAP Hero Entrance Animations
   useEffect(() => {
@@ -83,21 +135,14 @@ export default function App() {
         '-=0.8'
       );
 
-      // 4. Main showcase frame 3D pop & scale
-      tl.fromTo('.hero-main-frame',
-        { opacity: 0, y: 40, scale: 0.94 },
+      // 4. Kinetic Multi-Row Stream Stage
+      tl.fromTo('.hero-stream-stage',
+        { opacity: 0, y: 40, scale: 0.95 },
         { opacity: 1, y: 0, scale: 1, duration: 1.2 },
         '-=0.6'
       );
 
-      // 5. Side column items
-      tl.fromTo('.hero-production-switcher, .hero-thumb-card',
-        { opacity: 0, x: 35 },
-        { opacity: 1, x: 0, duration: 1, stagger: 0.18 },
-        '-=0.9'
-      );
-
-      // 6. Bottom actions & cues
+      // 5. Bottom actions & cues
       tl.fromTo('.hero-bottom-actions',
         { opacity: 0, y: 25 },
         { opacity: 1, y: 0, duration: 0.9 },
@@ -108,21 +153,7 @@ export default function App() {
     return () => ctx.revert();
   }, []);
 
-  // GSAP Transition on Production Switch
-  useEffect(() => {
-    if (mainImgRef.current && captionRef.current) {
-      gsap.fromTo(mainImgRef.current,
-        { opacity: 0.25, scale: 1.09, filter: 'contrast(1.2) brightness(1.2)' },
-        { opacity: 1, scale: 1, filter: 'contrast(1) brightness(1)', duration: 0.85, ease: 'power3.out' }
-      );
-      gsap.fromTo(captionRef.current,
-        { opacity: 0, y: 16 },
-        { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' }
-      );
-    }
-  }, [activeHeroIndex]);
-
-  // GSAP Interactive 3D Mouse Parallax & Ambient Spotlight
+  // GSAP Interactive Mouse Parallax & Ambient Spotlight
   const handleMouseMove = (e) => {
     if (!heroRef.current) return;
     const rect = heroRef.current.getBoundingClientRect();
@@ -141,25 +172,11 @@ export default function App() {
       });
     }
 
-    // 3D Perspective Tilt on Main Frame (Desktop only)
-    if (mainFrameRef.current && window.innerWidth >= 992) {
-      const rotateX = ((y - centerY) / centerY) * -4.5;
-      const rotateY = ((x - centerX) / centerX) * 4.5;
-      gsap.to(mainFrameRef.current, {
-        rotateX: rotateX,
-        rotateY: rotateY,
-        duration: 0.7,
-        ease: 'power2.out',
-        transformPerspective: 1200,
-        transformStyle: 'preserve-3d'
-      });
-    }
-
     // Watermark Monogram Parallax
     if (watermarkRef.current) {
       gsap.to(watermarkRef.current, {
-        x: ((x - centerX) / centerX) * -22,
-        y: ((y - centerY) / centerY) * -16,
+        x: ((x - centerX) / centerX) * -24,
+        y: ((y - centerY) / centerY) * -18,
         duration: 1.2,
         ease: 'power2.out'
       });
@@ -167,14 +184,6 @@ export default function App() {
   };
 
   const handleMouseLeave = () => {
-    if (mainFrameRef.current) {
-      gsap.to(mainFrameRef.current, {
-        rotateX: 0,
-        rotateY: 0,
-        duration: 1,
-        ease: 'power3.out'
-      });
-    }
     if (watermarkRef.current) {
       gsap.to(watermarkRef.current, {
         x: 0,
@@ -245,8 +254,6 @@ export default function App() {
     { num: '06', title: 'Creative productions' },
     { num: '07', title: 'Creative collaborations' },
   ];
-
-  const currentHero = heroProductions[activeHeroIndex];
 
   return (
     <div className="site-wrapper">
@@ -374,7 +381,7 @@ export default function App() {
                 <span className="live-pulse-bars">
                   <span></span><span></span><span></span><span></span>
                 </span>
-                <span>LIVE REEL // {currentHero.id} OF 03</span>
+                <span>CONTINUOUS REEL // 12 LOOKS ACTIVE</span>
               </div>
             </div>
 
@@ -416,91 +423,91 @@ export default function App() {
               </div>
             </div>
 
-            {/* Asymmetric Magazine Stage */}
-            <div 
-              className="hero-showcase-stage"
-              onMouseEnter={() => setIsReelPaused(true)}
-              onMouseLeave={() => setIsReelPaused(false)}
-            >
+            {/* Multi-Row Infinite Moving Editorial Gallery Stage */}
+            <div className="hero-stream-stage">
               
-              {/* Main Cinematic Feature Frame with 3D Tilt */}
-              <div className="hero-main-frame" ref={mainFrameRef}>
-                <div className="hero-frame-glass-shine" aria-hidden="true"></div>
-                <div className="hero-frame-top-bar">
-                  <span className="hero-frame-tag">{currentHero.tag}</span>
-                  <span className="hero-reel-badge">AUTOPLAY ACTIVE {isReelPaused ? '(PAUSED)' : ''}</span>
+              {/* Stream Control & Status Bar */}
+              <div className="hero-stream-control-bar">
+                <div className="stream-status">
+                  <span className="stream-live-dot"></span>
+                  <span>Continuous Editorial Stream // 3-Row Dynamic Canvas</span>
                 </div>
-                
-                <img 
-                  ref={mainImgRef}
-                  key={currentHero.id}
-                  src={currentHero.image} 
-                  alt={currentHero.title} 
-                  className="hero-main-img" 
-                />
-                
-                <div className="hero-frame-caption" ref={captionRef}>
-                  <div>
-                    <div className="hero-caption-number">{currentHero.id} // PRODUCTION</div>
-                    <div className="hero-caption-title">{currentHero.title}</div>
-                    <div className="hero-caption-sub">{currentHero.category}</div>
-                  </div>
-                  <div className="hero-caption-meta">
-                    <div className="hero-location-tag">{currentHero.location}</div>
-                    <div className="hero-credits-tag">{currentHero.credits}</div>
-                  </div>
-                </div>
+                <button 
+                  className="stream-toggle-btn"
+                  onClick={() => setIsStreamPaused(!isStreamPaused)}
+                  aria-label="Toggle stream motion"
+                >
+                  {isStreamPaused ? '▶ Resume Motion' : '⏸ Pause Motion'}
+                </button>
               </div>
 
-              {/* Side Column: Interactive Switcher & Talent Dossier */}
-              <div className="hero-side-editorial">
+              {/* Edge Gradient Mask Container */}
+              <div className={`hero-stream-viewport ${isStreamPaused ? 'paused' : ''}`}>
                 
-                {/* Production Switcher Box */}
-                <div className="hero-production-switcher">
-                  <div className="switcher-heading">
-                    <span className="switcher-heading-label">Featured Productions</span>
-                    <span className="switcher-counter">{currentHero.id} / 03</span>
-                  </div>
-                  
-                  <div className="switcher-list">
-                    {heroProductions.map((item, idx) => (
-                      <button
-                        key={item.id}
-                        className={`switcher-btn ${activeHeroIndex === idx ? 'active' : ''}`}
-                        onClick={() => setActiveHeroIndex(idx)}
+                {/* Row 1: Right to Left (←) */}
+                <div className="hero-stream-row stream-dir-left stream-speed-fast">
+                  <div className="hero-stream-track">
+                    {[...streamRow1, ...streamRow1].map((item, idx) => (
+                      <div 
+                        key={`r1-${idx}`} 
+                        className="hero-stream-card"
+                        onClick={() => setSelectedPreviewImage(item)}
+                        title="Click to inspect look"
                       >
-                        <div className="switcher-btn-content">
-                          <div className="switcher-btn-title">{item.title}</div>
-                          <div className="switcher-btn-cat">{item.category}</div>
+                        <img src={item.image} alt={item.title} className="stream-card-img" />
+                        <span className="stream-card-tag">{item.tag}</span>
+                        <div className="stream-card-info">
+                          <span className="stream-card-title">{item.title}</span>
+                          <span className="stream-card-cat">{item.category}</span>
                         </div>
-                        <span className="switcher-btn-num">{item.id}</span>
-
-                        {/* Animated Timer Progress Bar for active slide */}
-                        {activeHeroIndex === idx && (
-                          <div className={`switcher-progress-track ${isReelPaused ? 'paused' : ''}`}>
-                            <div className="switcher-progress-fill"></div>
-                          </div>
-                        )}
-                      </button>
+                      </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Talent Spotlight Secondary Card (Desktop/Tablet) */}
-                <div className="hero-thumb-card">
-                  <img 
-                    src="/assets/images/model_portrait.jpg" 
-                    alt="Talent Roster Portrait" 
-                    className="hero-thumb-img" 
-                  />
-                  <div className="hero-thumb-overlay">
-                    <span className="hero-thumb-tag">Model Development Dossier</span>
-                    <span className="hero-thumb-status">Roster 2026</span>
+                {/* Row 2: Left to Right (→) */}
+                <div className="hero-stream-row stream-dir-right stream-speed-medium">
+                  <div className="hero-stream-track">
+                    {[...streamRow2, ...streamRow2].map((item, idx) => (
+                      <div 
+                        key={`r2-${idx}`} 
+                        className="hero-stream-card"
+                        onClick={() => setSelectedPreviewImage(item)}
+                        title="Click to inspect look"
+                      >
+                        <img src={item.image} alt={item.title} className="stream-card-img" />
+                        <span className="stream-card-tag">{item.tag}</span>
+                        <div className="stream-card-info">
+                          <span className="stream-card-title">{item.title}</span>
+                          <span className="stream-card-cat">{item.category}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Row 3: Right to Left (←) - Desktop/Tablet */}
+                <div className="hero-stream-row stream-dir-left stream-speed-slow row-desktop-only">
+                  <div className="hero-stream-track">
+                    {[...streamRow3, ...streamRow3].map((item, idx) => (
+                      <div 
+                        key={`r3-${idx}`} 
+                        className="hero-stream-card"
+                        onClick={() => setSelectedPreviewImage(item)}
+                        title="Click to inspect look"
+                      >
+                        <img src={item.image} alt={item.title} className="stream-card-img" />
+                        <span className="stream-card-tag">{item.tag}</span>
+                        <div className="stream-card-info">
+                          <span className="stream-card-title">{item.title}</span>
+                          <span className="stream-card-cat">{item.category}</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
               </div>
-
             </div>
 
             {/* Bottom Actions Row */}
@@ -728,6 +735,42 @@ export default function App() {
                 </button>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Selected Preview Dossier */}
+      {selectedPreviewImage && (
+        <div className="modal-overlay" onClick={() => setSelectedPreviewImage(null)}>
+          <div className="modal-box-preview" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close-rich" onClick={() => setSelectedPreviewImage(null)} aria-label="Close preview">&times;</button>
+            <div className="preview-modal-frame">
+              <img src={selectedPreviewImage.image} alt={selectedPreviewImage.title} />
+            </div>
+            <div className="preview-modal-info">
+              <span className="label-burgundy">{selectedPreviewImage.tag}</span>
+              <h3>{selectedPreviewImage.title}</h3>
+              <p>{selectedPreviewImage.category} · Team Harvs Creative Production</p>
+              <div style={{ marginTop: '1.2rem', display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
+                <button 
+                  className="btn-pill btn-pill-sand"
+                  style={{ background: 'var(--burgundy)', color: 'var(--cream)', borderColor: 'var(--burgundy)' }}
+                  onClick={() => {
+                    setSelectedPreviewImage(null);
+                    setIsJoinOpen(true);
+                  }}
+                >
+                  Join / Collaborate on Looks &rarr;
+                </button>
+                <button 
+                  className="btn-pill btn-pill-outline-cream"
+                  style={{ color: 'var(--burgundy)', borderColor: 'rgba(88, 13, 22, 0.3)' }}
+                  onClick={() => setSelectedPreviewImage(null)}
+                >
+                  Back to Stream
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
