@@ -702,7 +702,7 @@ export default function App() {
                     <option value="MUA">Makeup Artist (MUA)</option>
                     <option value="Videographer">Videographer / BTS Creator</option>
                     <option value="Assistant">Creative Assistant</option>
-                    <option value="Photograher">Other Collaborator</option>
+                    <option value="Photograher">Photographer</option>
                   </select>
                 </div>
 
