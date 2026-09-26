@@ -105,19 +105,6 @@ export default function App() {
   return (
     <div className="site-wrapper">
       
-      {/* Top Utility Ticker */}
-      <div className="top-ticker">
-        <div className="container top-ticker-inner">
-          <div>
-            <span className="ticker-pulse"></span>
-            <span>Creative Team · Uyo / Akwa Ibom</span>
-          </div>
-          <div className="top-ticker-sub">
-            <span>Production Cycle 01 · Open Call Active</span>
-          </div>
-        </div>
-      </div>
-
       {/* Header */}
       <header className="site-header">
         <div className="container header-inner">
@@ -134,9 +121,8 @@ export default function App() {
           </nav>
 
           <div className="header-right">
-            <a href="#workspace" className="btn-pill btn-pill-outline-cream header-btn-workspace">Workspace</a>
             <button 
-              className="btn-pill btn-pill-sand"
+              className="header-cta-btn"
               onClick={() => setIsJoinOpen(true)}
             >
               Join
@@ -151,14 +137,27 @@ export default function App() {
             >
               <span className="hamburger-line"></span>
               <span className="hamburger-line"></span>
-              <span className="hamburger-line"></span>
             </button>
           </div>
         </div>
       </header>
 
       {/* Mobile Navigation Drawer */}
-      <div className={`mobile-drawer ${isMobileNavOpen ? 'open' : ''}`}>
+      <div 
+        className={`mobile-drawer ${isMobileNavOpen ? 'open' : ''}`}
+        aria-hidden={!isMobileNavOpen}
+      >
+        <div className="mobile-drawer-header">
+          <span className="mobile-drawer-tag">Navigation</span>
+          <button 
+            className="mobile-drawer-close"
+            onClick={() => setIsMobileNavOpen(false)}
+            aria-label="Close menu"
+          >
+            ✕
+          </button>
+        </div>
+
         <nav className="mobile-nav-list">
           <a href="#about" className="mobile-nav-link" onClick={() => setIsMobileNavOpen(false)}>
             About <span>01</span>
@@ -180,7 +179,7 @@ export default function App() {
         <div className="mobile-drawer-bottom">
           <button 
             className="btn-pill btn-pill-sand"
-            style={{ width: '100%', padding: '0.9rem' }}
+            style={{ width: '100%', padding: '0.85rem' }}
             onClick={() => {
               setIsMobileNavOpen(false);
               setIsJoinOpen(true);
@@ -188,7 +187,7 @@ export default function App() {
           >
             Apply to Join Collective
           </button>
-          <p style={{ fontSize: '0.72rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--sand)', textAlign: 'center' }}>
+          <p style={{ fontSize: '0.72rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--sand)', textAlign: 'center', marginTop: '0.75rem' }}>
             Rooted in Uyo, Akwa Ibom State
           </p>
         </div>
