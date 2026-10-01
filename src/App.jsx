@@ -2,11 +2,23 @@ import React, { useEffect, useState, useRef } from 'react';
 import Lenis from 'lenis';
 import { gsap } from 'gsap';
 import { SelectedWorksGallery } from '@/components/SelectedWorksGallery';
+import { WorkspacePortal } from '@/components/dashboard/WorkspacePortal';
+import { workspaceStore } from '@/lib/workspaceStore';
 
 export default function App() {
+  const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
+  const [workspaceInitialTab, setWorkspaceInitialTab] = useState('overview');
   const [isJoinOpen, setIsJoinOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  
+  // Join form state
+  const [joinForm, setJoinForm] = useState({
+    fullName: '',
+    contact: '',
+    discipline: '',
+    portfolio: ''
+  });
   
   // Kinetic Stream State
   const [isStreamPaused, setIsStreamPaused] = useState(false);
@@ -239,10 +251,18 @@ export default function App() {
 
   const handleJoinSubmit = (e) => {
     e.preventDefault();
+    workspaceStore.addApplication({
+      fullName: joinForm.fullName,
+      contact: joinForm.contact,
+      discipline: joinForm.discipline || 'Creative Collaborator',
+      portfolio: joinForm.portfolio,
+      notes: 'Direct application submitted from public open call modal.'
+    });
     setSubmitted(true);
     setTimeout(() => {
       setSubmitted(false);
       setIsJoinOpen(false);
+      setJoinForm({ fullName: '', contact: '', discipline: '', portfolio: '' });
     }, 2000);
   };
 
@@ -255,6 +275,15 @@ export default function App() {
     { num: '06', title: 'Creative productions' },
     { num: '07', title: 'Creative collaborations' },
   ];
+
+  if (isWorkspaceOpen) {
+    return (
+      <WorkspacePortal
+        onBackToSite={() => setIsWorkspaceOpen(false)}
+        initialTab={workspaceInitialTab}
+      />
+    );
+  }
 
   return (
     <div className="site-wrapper">
@@ -272,6 +301,16 @@ export default function App() {
             <a href="#what-we-do" className="nav-item">What We Do</a>
             <a href="#work" className="nav-item">Lookbook</a>
             <a href="#collective" className="nav-item">Collective</a>
+            <button 
+              className="nav-item"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--sand)' }}
+              onClick={() => {
+                setWorkspaceInitialTab('overview');
+                setIsWorkspaceOpen(true);
+              }}
+            >
+              Workspace CMS &rarr;
+            </button>
           </nav>
 
           <div className="header-right">
@@ -325,9 +364,17 @@ export default function App() {
           <a href="#collective" className="mobile-nav-link" onClick={() => setIsMobileNavOpen(false)}>
             Collective <span>04</span>
           </a>
-          <a href="#workspace" className="mobile-nav-link" onClick={() => setIsMobileNavOpen(false)}>
-            Workspace <span>05</span>
-          </a>
+          <button 
+            className="mobile-nav-link" 
+            style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer' }}
+            onClick={() => {
+              setIsMobileNavOpen(false);
+              setWorkspaceInitialTab('overview');
+              setIsWorkspaceOpen(true);
+            }}
+          >
+            Workspace CMS <span>05</span>
+          </button>
         </nav>
 
         <div className="mobile-drawer-bottom">
@@ -600,7 +647,10 @@ export default function App() {
                 <button 
                   className="btn-pill btn-pill-sand"
                   style={{ padding: '0.9rem 2.2rem', whiteSpace: 'nowrap' }}
-                  onClick={() => alert("The Creative Workspace & Admin CMS module is ready to connect!")}
+                  onClick={() => {
+                    setWorkspaceInitialTab('overview');
+                    setIsWorkspaceOpen(true);
+                  }}
                 >
                   Enter Workspace &rarr;
                 </button>
@@ -653,17 +703,33 @@ export default function App() {
               <form onSubmit={handleJoinSubmit}>
                 <div className="form-group-rich">
                   <label>Full Name</label>
-                  <input type="text" placeholder="Your name" required />
+                  <input 
+                    type="text" 
+                    placeholder="Your name" 
+                    required 
+                    value={joinForm.fullName}
+                    onChange={(e) => setJoinForm({ ...joinForm, fullName: e.target.value })}
+                  />
                 </div>
 
                 <div className="form-group-rich">
                   <label>Email & WhatsApp Phone</label>
-                  <input type="text" placeholder="Contact number" required />
+                  <input 
+                    type="text" 
+                    placeholder="Contact number / email" 
+                    required 
+                    value={joinForm.contact}
+                    onChange={(e) => setJoinForm({ ...joinForm, contact: e.target.value })}
+                  />
                 </div>
 
                 <div className="form-group-rich">
                   <label>Creative Discipline</label>
-                  <select required defaultValue="">
+                  <select 
+                    required 
+                    value={joinForm.discipline}
+                    onChange={(e) => setJoinForm({ ...joinForm, discipline: e.target.value })}
+                  >
                     <option value="" disabled>Select discipline...</option>
                     <option value="Model">Fashion / Commercial Model</option>
                     <option value="Stylist">Wardrobe / Editorial Stylist</option>
@@ -676,7 +742,13 @@ export default function App() {
 
                 <div className="form-group-rich">
                   <label>Instagram Handle / Portfolio</label>
-                  <input type="text" placeholder="@yourhandle or URL" required />
+                  <input 
+                    type="text" 
+                    placeholder="@yourhandle or URL" 
+                    required 
+                    value={joinForm.portfolio}
+                    onChange={(e) => setJoinForm({ ...joinForm, portfolio: e.target.value })}
+                  />
                 </div>
 
                 <button 

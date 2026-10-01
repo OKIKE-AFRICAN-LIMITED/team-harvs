@@ -6,6 +6,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Sparkles, Eye, ArrowUpRight } from "lucide-react"
 
+import { workspaceStore } from "@/lib/workspaceStore"
+
 export interface GalleryItem {
   id: string
   title: string
@@ -173,6 +175,21 @@ export const SelectedWorksGallery: React.FC<SelectedWorksGalleryProps> = ({
   onOpenJoin,
   onSelectPreview,
 }) => {
+  const [items, setItems] = React.useState<GalleryItem[]>(() => {
+    const storeWorks = workspaceStore.getLookbook();
+    return storeWorks.length > 0 ? storeWorks : GALLERY_ITEMS;
+  });
+
+  React.useEffect(() => {
+    const sync = () => {
+      const storeWorks = workspaceStore.getLookbook();
+      if (storeWorks.length > 0) {
+        setItems(storeWorks);
+      }
+    };
+    return workspaceStore.subscribe(sync);
+  }, []);
+
   return (
     <section 
       className="relative overflow-hidden bg-[#EFE6D8] text-[#1F0205] pt-20 pb-20 border-t border-b border-[#580d16]/15" 
@@ -248,7 +265,7 @@ export const SelectedWorksGallery: React.FC<SelectedWorksGalleryProps> = ({
       {/* Continuous Gallery Grid - Zero Empty Space, Full Natural Scroll */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 relative z-20">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
-          {GALLERY_ITEMS.map((item) => (
+          {items.map((item) => (
             <div
               key={item.id}
               onClick={() => onSelectPreview?.(item)}
