@@ -3,10 +3,12 @@ import Lenis from 'lenis';
 import { gsap } from 'gsap';
 import { SelectedWorksGallery } from '@/components/SelectedWorksGallery';
 import { WorkspacePortal } from '@/components/dashboard/WorkspacePortal';
+import { AuthPage } from '@/components/auth/AuthPage';
 import { workspaceStore } from '@/lib/workspaceStore';
 
 export default function App() {
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
+  const [isAuthPageOpen, setIsAuthPageOpen] = useState(false);
   const [workspaceInitialTab, setWorkspaceInitialTab] = useState('overview');
   const [isJoinOpen, setIsJoinOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -276,6 +278,18 @@ export default function App() {
     { num: '07', title: 'Creative collaborations' },
   ];
 
+  if (isAuthPageOpen) {
+    return (
+      <AuthPage
+        onBackToSite={() => setIsAuthPageOpen(false)}
+        onAuthSuccess={() => {
+          setIsAuthPageOpen(false);
+          setIsWorkspaceOpen(true);
+        }}
+      />
+    );
+  }
+
   if (isWorkspaceOpen) {
     return (
       <WorkspacePortal
@@ -310,6 +324,24 @@ export default function App() {
               }}
             >
               Workspace CMS &rarr;
+            </button>
+            <button 
+              className="nav-item"
+              style={{ 
+                background: 'rgba(239, 206, 165, 0.1)', 
+                border: '1px solid rgba(239, 206, 165, 0.25)', 
+                padding: '0.35rem 0.85rem',
+                borderRadius: '9999px',
+                cursor: 'pointer', 
+                color: 'var(--sand)',
+                fontSize: '0.72rem',
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                fontWeight: 600
+              }}
+              onClick={() => setIsAuthPageOpen(true)}
+            >
+              Sign In
             </button>
           </nav>
 
@@ -374,6 +406,16 @@ export default function App() {
             }}
           >
             Workspace CMS <span>05</span>
+          </button>
+          <button 
+            className="mobile-nav-link" 
+            style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--sand)' }}
+            onClick={() => {
+              setIsMobileNavOpen(false);
+              setIsAuthPageOpen(true);
+            }}
+          >
+            Studio Sign In <span>06</span>
           </button>
         </nav>
 

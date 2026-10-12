@@ -1,19 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  LayoutDashboard, 
-  Layers, 
-  Users, 
-  FolderKanban, 
-  FileText, 
   ArrowLeft, 
   Sparkles, 
-  Menu, 
-  X, 
-  ShieldCheck, 
-  UserCheck, 
-  Plus, 
-  RotateCcw,
-  Eye,
+  LogOut, 
+  LogIn, 
+  X,
+  Lock,
   ExternalLink
 } from 'lucide-react';
 import { 
@@ -24,12 +16,10 @@ import {
   CreativeAsset, 
   MemberSubmission 
 } from '@/lib/workspaceStore';
-import { OverviewTab } from './OverviewTab';
-import { LookbookCmsTab } from './LookbookCmsTab';
-import { RosterCrmTab } from './RosterCrmTab';
-import { ProjectBriefsTab } from './ProjectBriefsTab';
-import { AssetLibraryTab } from './AssetLibraryTab';
-import { MemberWorkspaceView } from './MemberWorkspaceView';
+import { isSupabaseConfigured, authService, type Profile } from '@/lib/supabase';
+import { AuthPage } from '../auth/AuthPage';
+import { AdminDashboard } from './AdminDashboard';
+import { MemberDashboard } from './MemberDashboard';
 
 import { NewLookModal } from './NewLookModal';
 import { NewBriefModal } from './NewBriefModal';
@@ -44,31 +34,27 @@ interface WorkspacePortalProps {
 
 export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
   onBackToSite,
-  initialTab = 'overview',
 }) => {
-  // Store state
+  // Store state (Clean slate synced with Supabase)
   const [applications, setApplications] = useState<Application[]>([]);
   const [lookbook, setLookbook] = useState<LookbookWork[]>([]);
   const [briefs, setBriefs] = useState<ProjectBrief[]>([]);
   const [assets, setAssets] = useState<CreativeAsset[]>([]);
   const [submissions, setSubmissions] = useState<MemberSubmission[]>([]);
 
-  // Navigation state
-  const [activeTab, setActiveTab] = useState<string>(initialTab);
-  const [userRole, setUserRole] = useState<'admin' | 'member'>('admin');
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-
-  // Modal states
+  // Modals state
   const [isNewLookOpen, setIsNewLookOpen] = useState(false);
-  const [editLookWork, setEditLookWork] = useState<LookbookWork | null>(null);
-
   const [isNewBriefOpen, setIsNewBriefOpen] = useState(false);
-  const [editBrief, setEditBrief] = useState<ProjectBrief | null>(null);
-
-  const [selectedApplicant, setSelectedApplicant] = useState<Application | null>(null);
   const [isNewAssetOpen, setIsNewAssetOpen] = useState(false);
+  const [selectedApplicant, setSelectedApplicant] = useState<Application | null>(null);
   const [isSubmitDeliverableOpen, setIsSubmitDeliverableOpen] = useState(false);
   const [previewLookWork, setPreviewLookWork] = useState<LookbookWork | null>(null);
+
+  // Auth & Profile state
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
+  const [isAuthPageOpen, setIsAuthPageOpen] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
 
   // Sync with store
   useEffect(() => {
@@ -85,325 +71,251 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
     return () => unsubscribe();
   }, []);
 
-  const pendingAppsCount = applications.filter((a) => a.status === 'Pending').length;
-  const activeBriefsCount = briefs.filter((b) => b.status === 'In Production' || b.status === 'Planning').length;
+  // Sync with Supabase Auth & Profile
+  useEffect(() => {
+    async function loadAuth() {
+      try {
+        const user = await authService.getUser();
+        if (user) {
+          setCurrentUser(user);
+          const profile = await authService.getProfile(user.id);
+          if (profile) {
+            setCurrentProfile(profile);
+          } else {
+            // Default profile structure if table row is still creating
+            setCurrentProfile({
+              id: user.id,
+              email: user.email || '',
+              full_name: (user.user_metadata?.full_name as string) || user.email?.split('@')[0] || '',
+              role: 'member',
+              status: 'active'
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('Auth check error:', e);
+      } finally {
+        setAuthLoading(false);
+      }
+    }
 
-  const navItems = [
-    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-    { id: 'lookbook', label: 'Lookbook CMS', icon: Layers, badge: lookbook.length },
-    { id: 'roster', label: 'Talent & Applications', icon: Users, badge: pendingAppsCount > 0 ? pendingAppsCount : undefined, badgeHighlight: true },
-    { id: 'briefs', label: 'Production Briefs', icon: FolderKanban, badge: activeBriefsCount > 0 ? activeBriefsCount : undefined },
-    { id: 'assets', label: 'Asset Library', icon: FileText, badge: assets.length },
-  ];
+    loadAuth();
+
+    const { data } = authService.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        setCurrentUser(session.user);
+        const profile = await authService.getProfile(session.user.id);
+        if (profile) {
+          setCurrentProfile(profile);
+        } else {
+          setCurrentProfile({
+            id: session.user.id,
+            email: session.user.email || '',
+            full_name: (session.user.user_metadata?.full_name as string) || session.user.email?.split('@')[0] || '',
+            role: 'member',
+            status: 'active'
+          });
+        }
+      } else {
+        setCurrentUser(null);
+        setCurrentProfile(null);
+      }
+    });
+
+    return () => {
+      if (data?.subscription) {
+        data.subscription.unsubscribe();
+      }
+    };
+  }, []);
+
+  // Handle Full-Screen Auth Page
+  if (isAuthPageOpen) {
+    return (
+      <AuthPage
+        onBackToSite={() => setIsAuthPageOpen(false)}
+        onAuthSuccess={(user, profile) => {
+          setCurrentUser(user);
+          setCurrentProfile(profile);
+          setIsAuthPageOpen(false);
+        }}
+      />
+    );
+  }
+
+  const role = currentProfile?.role || 'member';
 
   return (
-    <div className="min-h-screen bg-[#140103] text-[#F8F4EF] flex flex-col lg:flex-row antialiased font-sans">
+    <div className="min-h-screen bg-[#0C0203] text-[#F8F4EF] flex flex-col antialiased selection:bg-[#EFCEA5] selection:text-[#1F0205]">
       
       {/* ==============================================================
-          SIDEBAR (Desktop Persistent + Mobile Drawer)
+          TOP LUXURY HEADER BAR (Spacious, Minimalist)
           ============================================================== */}
-      
-      {/* Mobile Backdrop */}
-      {isMobileSidebarOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-black/80 lg:hidden backdrop-blur-sm"
-          onClick={() => setIsMobileSidebarOpen(false)}
-        />
-      )}
-
-      <aside className={`
-        fixed lg:sticky top-0 bottom-0 left-0 z-40
-        w-72 bg-[#1C0306] border-r border-[#EFCEA5]/15
-        flex flex-col justify-between p-6 transition-transform duration-300
-        ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
-        {/* Brand & Top Header */}
-        <div>
-          <div className="flex items-center justify-between pb-6 border-b border-[#EFCEA5]/15">
-            <div className="flex items-center gap-3">
-              <img 
-                src="/assets/th-monogram-cream.png" 
-                alt="Team Harvs" 
-                className="w-9 h-9 object-contain"
-              />
-              <div>
-                <h2 className="text-base font-serif tracking-wide text-[#F8F4EF] leading-tight">
-                  Team Harvs
-                </h2>
-                <span className="text-[0.65rem] tracking-[0.2em] text-[#EFCEA5] uppercase font-semibold block">
-                  Studio Workspace
-                </span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setIsMobileSidebarOpen(false)}
-              className="lg:hidden p-1.5 text-[#EFCEA5] hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Role Toggle Capsule */}
-          <div className="mt-5 p-1 bg-[#2A050A] rounded-xl border border-[#EFCEA5]/15 flex items-center">
-            <button
-              onClick={() => setUserRole('admin')}
-              className={`flex-1 py-1.5 text-[0.68rem] uppercase tracking-wider font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-                userRole === 'admin'
-                  ? 'bg-[#680F1B] text-[#F8F4EF] shadow-md border border-[#EFCEA5]/30'
-                  : 'text-[#EFCEA5]/60 hover:text-[#EFCEA5]'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-[#EFCEA5]" /> Admin CMS
-            </button>
-            <button
-              onClick={() => setUserRole('member')}
-              className={`flex-1 py-1.5 text-[0.68rem] uppercase tracking-wider font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-                userRole === 'member'
-                  ? 'bg-[#680F1B] text-[#F8F4EF] shadow-md border border-[#EFCEA5]/30'
-                  : 'text-[#EFCEA5]/60 hover:text-[#EFCEA5]'
-              }`}
-            >
-              <UserCheck className="w-3.5 h-3.5 text-[#EFCEA5]" /> Member Hub
-            </button>
-          </div>
-
-          {/* Navigation Links */}
-          <nav className="mt-6 space-y-1.5">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id && userRole === 'admin';
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setUserRole('admin');
-                    setActiveTab(item.id);
-                    setIsMobileSidebarOpen(false);
-                  }}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all ${
-                    isActive
-                      ? 'bg-[#EFCEA5] text-[#1F0205] shadow-md'
-                      : 'text-[#EFCEA5]/70 hover:text-[#EFCEA5] hover:bg-white/5'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-[#1F0205]' : 'text-[#EFCEA5]'}`} />
-                    <span>{item.label}</span>
-                  </div>
-
-                  {item.badge !== undefined && (
-                    <span className={`text-[0.62rem] px-2 py-0.5 rounded-full font-bold ${
-                      isActive 
-                        ? 'bg-[#1F0205] text-[#EFCEA5]' 
-                        : item.badgeHighlight 
-                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                        : 'bg-white/10 text-[#EFCEA5]/80'
-                    }`}>
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Sidebar Footer */}
-        <div className="pt-6 border-t border-[#EFCEA5]/15 space-y-3">
+      <header className="sticky top-0 z-40 bg-[#0C0203]/90 backdrop-blur-md border-b border-[#EFCEA5]/10 px-6 sm:px-12 py-5 flex items-center justify-between">
+        
+        {/* Brand & Left Navigation */}
+        <div className="flex items-center gap-6">
           <button
             onClick={onBackToSite}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-[#EFCEA5]/30 hover:border-[#EFCEA5] text-[#EFCEA5] text-xs font-semibold uppercase tracking-wider transition-colors hover:bg-white/5"
+            className="flex items-center gap-2.5 text-xs text-[#EFCEA5] hover:text-white uppercase tracking-wider font-semibold transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" /> Return to Portfolio
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Return to Portfolio</span>
           </button>
 
-          <div className="flex items-center justify-between text-[0.68rem] text-[#EFCEA5]/50 px-1">
-            <span>Uyo &bull; Akwa Ibom</span>
-            <button
-              onClick={() => {
-                if (window.confirm('Reset sample workspace data to factory defaults?')) {
-                  workspaceStore.resetToSeeds();
-                }
-              }}
-              title="Reset Demo Data"
-              className="hover:text-[#EFCEA5] transition-colors flex items-center gap-1"
-            >
-              <RotateCcw className="w-3 h-3" /> Reset Data
-            </button>
-          </div>
-        </div>
-      </aside>
+          <div className="h-4 w-px bg-[#EFCEA5]/20 hidden sm:block" />
 
-      {/* ==============================================================
-          MAIN CONTENT AREA
-          ============================================================== */}
-      <div className="flex-1 flex flex-col min-w-0">
-        
-        {/* Top Header Bar */}
-        <header className="sticky top-0 z-30 bg-[#1C0306]/90 backdrop-blur-md border-b border-[#EFCEA5]/15 px-4 sm:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsMobileSidebarOpen(true)}
-              className="lg:hidden p-2 text-[#EFCEA5] hover:text-white rounded-lg hover:bg-white/5"
-              aria-label="Open sidebar"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-
+            <img 
+              src="/assets/th-monogram-cream.png" 
+              alt="Team Harvs" 
+              className="w-7 h-7 object-contain"
+            />
             <div>
-              <span className="text-[0.65rem] tracking-[0.2em] text-[#EFCEA5]/60 uppercase font-semibold hidden sm:block">
-                Team Harvs CMS // {userRole === 'admin' ? 'Studio Director' : 'Collective Member'}
+              <span className="text-sm font-serif text-[#F8F4EF] tracking-wide block leading-none">
+                Team Harvs
               </span>
-              <h1 className="text-lg sm:text-xl font-serif text-[#F8F4EF]">
-                {userRole === 'member' ? 'Collective Member Workspace' : (
-                  activeTab === 'overview' ? 'Executive Studio Overview' :
-                  activeTab === 'lookbook' ? 'Lookbook & Editorial CMS' :
-                  activeTab === 'roster' ? 'Talent Roster & Open Calls' :
-                  activeTab === 'briefs' ? 'Production Briefs & Shoots' :
-                  'Creative Asset Library'
-                )}
-              </h1>
+              <span className="text-[0.62rem] tracking-[0.2em] text-[#EFCEA5]/60 uppercase font-mono block mt-1">
+                {role === 'admin' ? 'Studio Command Center' : 'Talent Workspace'}
+              </span>
             </div>
           </div>
+        </div>
 
-          {/* Quick Header Actions */}
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={() => {
-                setEditLookWork(null);
-                setIsNewLookOpen(true);
-              }}
-              className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-[#EFCEA5]/15 hover:bg-[#EFCEA5]/25 text-[#EFCEA5] border border-[#EFCEA5]/30 transition-all"
-            >
-              <Plus className="w-3.5 h-3.5" /> New Look
-            </button>
+        {/* User Pill & Sign Out */}
+        <div className="flex items-center gap-3">
+          {currentUser ? (
+            <div className="flex items-center gap-3 pl-3 pr-2 py-1.5 rounded-full bg-[#170204] border border-[#EFCEA5]/20 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-[#F8F4EF] font-medium truncate max-w-[150px] sm:max-w-[200px]">
+                  {currentProfile?.full_name || currentUser.email}
+                </span>
+                <span className={`text-[0.62rem] px-2.5 py-0.5 rounded-full uppercase font-bold tracking-wider ${
+                  role === 'admin' 
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' 
+                    : 'bg-[#EFCEA5]/15 text-[#EFCEA5] border border-[#EFCEA5]/20'
+                }`}>
+                  {role === 'admin' ? 'Studio Director' : 'Talent Member'}
+                </span>
+              </div>
 
-            <button
-              onClick={onBackToSite}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wider bg-[#EFCEA5] text-[#1F0205] hover:bg-[#F8F4EF] transition-all shadow-md hover:scale-105"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" /> Back to Site
-            </button>
-          </div>
-        </header>
-
-        {/* Tab Content Canvas */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-          {userRole === 'member' ? (
-            <MemberWorkspaceView
-              briefs={briefs}
-              assets={assets}
-              submissions={submissions}
-              roster={applications.filter((a) => a.status === 'On Roster')}
-              onOpenSubmitDeliverable={() => setIsSubmitDeliverableOpen(true)}
-            />
+              <button
+                onClick={async () => {
+                  await authService.signOut();
+                  setCurrentUser(null);
+                  setCurrentProfile(null);
+                }}
+                title="Sign Out"
+                className="p-1.5 rounded-full text-[#EFCEA5]/60 hover:text-rose-400 hover:bg-rose-950/40 transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
           ) : (
-            <>
-              {activeTab === 'overview' && (
-                <OverviewTab
-                  applications={applications}
-                  lookbook={lookbook}
-                  briefs={briefs}
-                  assets={assets}
-                  submissions={submissions}
-                  onNavigateTab={(tab) => setActiveTab(tab)}
-                  onOpenNewLook={() => {
-                    setEditLookWork(null);
-                    setIsNewLookOpen(true);
-                  }}
-                  onOpenNewBrief={() => {
-                    setEditBrief(null);
-                    setIsNewBriefOpen(true);
-                  }}
-                  onSelectApplication={(app) => setSelectedApplicant(app)}
-                />
-              )}
-
-              {activeTab === 'lookbook' && (
-                <LookbookCmsTab
-                  lookbook={lookbook}
-                  onOpenNewLook={() => {
-                    setEditLookWork(null);
-                    setIsNewLookOpen(true);
-                  }}
-                  onEditLook={(work) => {
-                    setEditLookWork(work);
-                    setIsNewLookOpen(true);
-                  }}
-                  onPreviewLook={(work) => setPreviewLookWork(work)}
-                />
-              )}
-
-              {activeTab === 'roster' && (
-                <RosterCrmTab
-                  applications={applications}
-                  onSelectApplication={(app) => setSelectedApplicant(app)}
-                />
-              )}
-
-              {activeTab === 'briefs' && (
-                <ProjectBriefsTab
-                  briefs={briefs}
-                  onOpenNewBrief={() => {
-                    setEditBrief(null);
-                    setIsNewBriefOpen(true);
-                  }}
-                  onEditBrief={(brief) => {
-                    setEditBrief(brief);
-                    setIsNewBriefOpen(true);
-                  }}
-                  onOpenSubmitDeliverable={() => setIsSubmitDeliverableOpen(true)}
-                />
-              )}
-
-              {activeTab === 'assets' && (
-                <AssetLibraryTab
-                  assets={assets}
-                  onOpenNewAsset={() => setIsNewAssetOpen(true)}
-                />
-              )}
-            </>
+            <button
+              onClick={() => setIsAuthPageOpen(true)}
+              className="flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold uppercase tracking-wider bg-[#EFCEA5] text-[#1F0205] hover:bg-[#F8F4EF] transition-all shadow-md"
+            >
+              <LogIn className="w-3.5 h-3.5" /> Sign In / Register
+            </button>
           )}
-        </main>
+        </div>
 
-      </div>
+      </header>
 
       {/* ==============================================================
-          GLOBAL MODALS
+          MAIN CONTENT VIEW (Strictly Governed by Profile Role)
+          ============================================================== */}
+      <main className="flex-1 p-6 sm:p-10 lg:p-16 max-w-7xl w-full mx-auto">
+        
+        {/* If user is not authenticated: Show luxury gateway invitation */}
+        {!currentUser ? (
+          <div className="py-20 text-center max-w-xl mx-auto space-y-6 animate-fade-in">
+            <div className="w-16 h-16 rounded-full bg-[#170204] border border-[#EFCEA5]/20 flex items-center justify-center mx-auto text-[#EFCEA5]">
+              <Lock className="w-7 h-7" />
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[0.68rem] tracking-[0.24em] uppercase text-[#EFCEA5] font-semibold block">
+                Restricted Studio Access
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-serif text-[#F8F4EF]">
+                Studio Workspace Authentication Required
+              </h2>
+              <p className="text-xs sm:text-sm text-[#EFCEA5]/70 leading-relaxed font-sans pt-2">
+                Sign in with your creative credentials to access your talent call sheets, submit shoot deliverables, or access the administrative CMS.
+              </p>
+            </div>
+
+            <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
+              <button
+                onClick={() => setIsAuthPageOpen(true)}
+                className="w-full sm:w-auto px-8 py-3.5 rounded-full text-xs font-bold uppercase tracking-wider bg-[#EFCEA5] text-[#1F0205] hover:bg-[#F8F4EF] transition-all shadow-xl hover:scale-105"
+              >
+                Sign In to Studio Portal &rarr;
+              </button>
+              <button
+                onClick={onBackToSite}
+                className="w-full sm:w-auto px-6 py-3.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-white/5 hover:bg-white/10 text-[#EFCEA5] border border-[#EFCEA5]/20 transition-all"
+              >
+                Return to Public Portfolio
+              </button>
+            </div>
+          </div>
+        ) : role === 'admin' ? (
+          /* Strictly ADMIN DASHBOARD for Studio Directors */
+          <AdminDashboard
+            applications={applications}
+            lookbook={lookbook}
+            briefs={briefs}
+            assets={assets}
+            submissions={submissions}
+            onOpenNewLook={() => setIsNewLookOpen(true)}
+            onOpenNewBrief={() => setIsNewBriefOpen(true)}
+            onOpenNewAsset={() => setIsNewAssetOpen(true)}
+            onSelectApplicant={(app) => setSelectedApplicant(app)}
+            onPreviewLook={(work) => setPreviewLookWork(work)}
+          />
+        ) : (
+          /* Strictly MEMBER DASHBOARD for Creative Talent */
+          <MemberDashboard
+            profile={currentProfile}
+            briefs={briefs}
+            assets={assets}
+            submissions={submissions}
+            onOpenSubmitDeliverable={() => setIsSubmitDeliverableOpen(true)}
+          />
+        )}
+
+      </main>
+
+      {/* ==============================================================
+          STUDIO MODALS
           ============================================================== */}
       
-      {/* 1. New / Edit Look Modal */}
+      {/* 1. New Look Modal */}
       <NewLookModal
         isOpen={isNewLookOpen}
-        onClose={() => {
-          setIsNewLookOpen(false);
-          setEditLookWork(null);
-        }}
-        editWork={editLookWork}
+        onClose={() => setIsNewLookOpen(false)}
       />
 
-      {/* 2. New / Edit Brief Modal */}
+      {/* 2. New Brief Modal */}
       <NewBriefModal
         isOpen={isNewBriefOpen}
-        onClose={() => {
-          setIsNewBriefOpen(false);
-          setEditBrief(null);
-        }}
-        editBrief={editBrief}
+        onClose={() => setIsNewBriefOpen(false)}
       />
 
-      {/* 3. Talent Applicant Dossier Modal */}
-      <ApplicantDossierModal
-        application={selectedApplicant}
-        isOpen={!!selectedApplicant}
-        onClose={() => setSelectedApplicant(null)}
-      />
-
-      {/* 4. New Creative Asset Modal */}
+      {/* 3. New Asset Modal */}
       <NewAssetModal
         isOpen={isNewAssetOpen}
         onClose={() => setIsNewAssetOpen(false)}
+      />
+
+      {/* 4. Applicant Dossier Evaluation Modal */}
+      <ApplicantDossierModal
+        application={selectedApplicant}
+        isOpen={Boolean(selectedApplicant)}
+        onClose={() => setSelectedApplicant(null)}
       />
 
       {/* 5. Submit Deliverable Modal */}
@@ -420,7 +332,7 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
           onClick={() => setPreviewLookWork(null)}
         >
           <div 
-            className="relative max-w-2xl w-full bg-[#1C0306] border border-[#EFCEA5]/30 rounded-2xl overflow-hidden shadow-2xl"
+            className="relative max-w-2xl w-full bg-[#170204] border border-[#EFCEA5]/30 rounded-3xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="relative aspect-[4/3] bg-black">
@@ -431,26 +343,22 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
               />
               <button
                 onClick={() => setPreviewLookWork(null)}
-                className="absolute top-3 right-3 p-2 rounded-full bg-black/60 text-white hover:bg-black transition-colors"
+                className="absolute top-4 right-4 p-2 rounded-full bg-black/60 text-white hover:bg-black transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-6">
+            <div className="p-8 space-y-3">
               <span className="text-[0.65rem] tracking-[0.2em] uppercase font-semibold text-[#EFCEA5]">
                 {previewLookWork.tag} &bull; {previewLookWork.discipline}
               </span>
-              <h2 className="text-2xl font-serif text-[#F8F4EF] mt-1">{previewLookWork.title}</h2>
-              <p className="text-xs text-[#EFCEA5]/80 mt-1">{previewLookWork.category}</p>
+              <h2 className="text-2xl font-serif text-[#F8F4EF]">{previewLookWork.title}</h2>
+              <p className="text-xs text-[#EFCEA5]/80">{previewLookWork.category}</p>
               {previewLookWork.description && (
-                <p className="text-xs text-[#F8F4EF]/80 mt-3 leading-relaxed border-t border-[#EFCEA5]/10 pt-3">
+                <p className="text-xs text-[#F8F4EF]/80 pt-3 border-t border-[#EFCEA5]/10 leading-relaxed">
                   {previewLookWork.description}
                 </p>
               )}
-              <div className="flex items-center justify-between pt-4 mt-4 border-t border-[#EFCEA5]/10 text-xs text-[#EFCEA5]/70">
-                <span>Stylist: {previewLookWork.stylist || 'Studio Harvs'}</span>
-                <span>Camera: {previewLookWork.photographer || 'Studio Harvs'}</span>
-              </div>
             </div>
           </div>
         </div>
