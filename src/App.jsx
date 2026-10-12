@@ -26,7 +26,7 @@ export default function App() {
   const [isStreamPaused, setIsStreamPaused] = useState(false);
   const [selectedPreviewImage, setSelectedPreviewImage] = useState(null);
 
-  // 3-Row Dynamic Editorial Gallery Data
+  // 2-Row Dynamic Editorial Gallery Data (Clean, uncluttered layout)
   const streamRow1 = [
     {
       id: '01',
@@ -55,10 +55,7 @@ export default function App() {
       category: 'Editorial Talent Dossier',
       image: '/assets/images/model_portrait.jpg',
       tag: 'Look 04 // Roster'
-    }
-  ];
-
-  const streamRow2 = [
+    },
     {
       id: '05',
       title: 'Architectural Motion',
@@ -72,7 +69,10 @@ export default function App() {
       category: 'BTS & 35mm Cinema Motion',
       image: '/assets/images/creative_production_bts.jpg',
       tag: 'Look 06 // 35mm Motion'
-    },
+    }
+  ];
+
+  const streamRow2 = [
     {
       id: '07',
       title: 'Burgundy & Cream',
@@ -86,10 +86,7 @@ export default function App() {
       category: 'Studio Harvs Production',
       image: '/assets/images/editorial_hero.jpg',
       tag: 'Look 08 // Set Design'
-    }
-  ];
-
-  const streamRow3 = [
+    },
     {
       id: '09',
       title: 'Metropolitan Set',
@@ -505,7 +502,7 @@ export default function App() {
               <div className="hero-stream-control-bar">
                 <div className="stream-status">
                   <span className="stream-live-dot"></span>
-                  <span>Continuous Editorial Stream // 3-Row Dynamic Canvas</span>
+                  <span>Continuous Editorial Stream // 2-Row Dynamic Canvas</span>
                 </div>
                 <button 
                   className="stream-toggle-btn"
@@ -546,27 +543,6 @@ export default function App() {
                     {[...streamRow2, ...streamRow2].map((item, idx) => (
                       <div 
                         key={`r2-${idx}`} 
-                        className="hero-stream-card"
-                        onClick={() => setSelectedPreviewImage(item)}
-                        title="Click to inspect look"
-                      >
-                        <img src={item.image} alt={item.title} className="stream-card-img" />
-                        <span className="stream-card-tag">{item.tag}</span>
-                        <div className="stream-card-info">
-                          <span className="stream-card-title">{item.title}</span>
-                          <span className="stream-card-cat">{item.category}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Row 3: Right to Left (←) - Desktop/Tablet */}
-                <div className="hero-stream-row stream-dir-left stream-speed-slow row-desktop-only">
-                  <div className="hero-stream-track">
-                    {[...streamRow3, ...streamRow3].map((item, idx) => (
-                      <div 
-                        key={`r3-${idx}`} 
                         className="hero-stream-card"
                         onClick={() => setSelectedPreviewImage(item)}
                         title="Click to inspect look"
