@@ -20,7 +20,14 @@ export const isSupabaseConfigured = Boolean(
  * preventing any runtime initialization crashes.
  */
 export const supabase = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      },
+    })
   : createClient('https://placeholder.supabase.co', 'placeholder-anon-key', {
       auth: {
         persistSession: false,
@@ -54,13 +61,17 @@ export const authService = {
   async getSession(): Promise<Session | null> {
     if (!isSupabaseConfigured) return null;
     const { data } = await supabase.auth.getSession();
-    return data.session;
+    return data?.session || null;
   },
 
   async getUser(): Promise<User | null> {
     if (!isSupabaseConfigured) return null;
+    const session = await this.getSession();
+    if (session?.user) {
+      return session.user;
+    }
     const { data } = await supabase.auth.getUser();
-    return data.user;
+    return data?.user || null;
   },
 
   async getProfile(userId: string): Promise<Profile | null> {
@@ -94,15 +105,28 @@ export const authService = {
     return data as Profile;
   },
 
-  async signIn(email: string, password: string):Promise<{ user: User | null; profile: Profile | null; error: string | null }> {
+  async signIn(email: string, password: string): Promise<{ user: User | null; profile: Profile | null; error: string | null }> {
     if (!isSupabaseConfigured) {
       return { user: null, profile: null, error: 'Supabase credentials not configured yet.' };
     }
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Attempt sign-in with normalized email
+    let { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+
+    // Mobile fallback: If failed and password has accidental whitespace from mobile keyboard, retry trimmed
+    if (error && password.trim() !== password) {
+      const retry = await supabase.auth.signInWithPassword({ email: cleanEmail, password: password.trim() });
+      if (!retry.error && retry.data) {
+        data = retry.data;
+        error = null;
+      }
+    }
+
     if (error) {
       return { user: null, profile: null, error: error.message };
     }
-    if (data.user) {
+    if (data?.user) {
       const profile = await this.getProfile(data.user.id);
       return { user: data.user, profile, error: null };
     }
@@ -117,12 +141,13 @@ export const authService = {
     if (!isSupabaseConfigured) {
       return { user: null, error: 'Supabase credentials not configured yet.' };
     }
+    const cleanEmail = email.trim().toLowerCase();
     const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
+      email: cleanEmail,
+      password: password.trim(),
       options: {
         data: {
-          full_name: metadata.full_name,
+          full_name: metadata.full_name?.trim() || '',
           role: metadata.role || 'member',
           discipline: metadata.discipline || 'Model',
         },

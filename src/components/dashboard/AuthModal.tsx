@@ -41,9 +41,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
+    const cleanEmail = email.trim().toLowerCase();
+
     try {
       if (mode === 'signin') {
-        const { user, profile, error } = await authService.signIn(email, password);
+        const { user, profile, error } = await authService.signIn(cleanEmail, password);
         if (error) {
           setErrorMsg(error);
         } else if (user) {
@@ -54,8 +56,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           }, 600);
         }
       } else {
-        const { user, error } = await authService.signUp(email, password, {
-          full_name: fullName,
+        const { user, error } = await authService.signUp(cleanEmail, password, {
+          full_name: fullName.trim(),
           role,
           discipline,
         });
@@ -163,6 +165,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <input
                   type="text"
                   required
+                  autoCapitalize="words"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  autoComplete="name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="e.g. Imo Ekong"
@@ -180,6 +186,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#EFCEA5]/50" />
               <input
                 type="email"
+                inputMode="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                autoComplete="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -197,6 +208,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#EFCEA5]/50" />
               <input
                 type="password"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                 required
                 minLength={6}
                 value={password}

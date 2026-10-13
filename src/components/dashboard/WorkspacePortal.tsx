@@ -84,7 +84,8 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
   useEffect(() => {
     async function loadAuth() {
       try {
-        const user = await authService.getUser();
+        const session = await authService.getSession();
+        const user = session?.user || (await authService.getUser());
         if (user) {
           setCurrentUser(user);
           const profile = await authService.getProfile(user.id);
@@ -139,6 +140,9 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
 
   // Sign out handler
   const handleSignOut = async () => {
+    try {
+      localStorage.removeItem('teamharvs_workspace_active');
+    } catch {}
     await authService.signOut();
     setCurrentUser(null);
     setCurrentProfile(null);

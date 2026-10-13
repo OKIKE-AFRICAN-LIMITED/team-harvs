@@ -78,6 +78,29 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     { id: 'Assistant', label: 'Assistant', icon: Users },
   ];
 
+  // Check if active session already exists in localStorage/Supabase
+  React.useEffect(() => {
+    async function checkExisting() {
+      try {
+        const session = await authService.getSession();
+        if (session?.user) {
+          const profile = await authService.getProfile(session.user.id);
+          const userProfile: Profile = profile || {
+            id: session.user.id,
+            email: session.user.email || '',
+            full_name: (session.user.user_metadata?.full_name as string) || session.user.email?.split('@')[0] || '',
+            role: 'member',
+            status: 'active'
+          };
+          onAuthSuccess(session.user, userProfile);
+        }
+      } catch (e) {
+        console.warn('Existing session check failed:', e);
+      }
+    }
+    checkExisting();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -90,17 +113,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       return;
     }
 
+    const cleanEmail = email.trim().toLowerCase();
+
     try {
       if (mode === 'signin') {
-        const { user, profile, error } = await authService.signIn(email.trim(), password);
+        const { user, profile, error } = await authService.signIn(cleanEmail, password);
         if (error) {
           setErrorMsg(error);
         } else if (user) {
           // Resolved profile determines whether they access Admin or Member portal!
           const userProfile: Profile = profile || {
             id: user.id,
-            email: user.email || email,
-            full_name: (user.user_metadata?.full_name as string) || email.split('@')[0],
+            email: user.email || cleanEmail,
+            full_name: (user.user_metadata?.full_name as string) || cleanEmail.split('@')[0],
             role: 'member',
             status: 'active'
           };
@@ -112,7 +137,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         }
       } else {
         // Registering as a talent member - role is always strictly 'member'
-        const { user, error } = await authService.signUp(email.trim(), password, {
+        const { user, error } = await authService.signUp(cleanEmail, password, {
           full_name: fullName.trim(),
           discipline,
           role: 'member',
@@ -324,6 +349,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                   <input
                     type="text"
                     required
+                    autoCapitalize="words"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    autoComplete="name"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="e.g. Imo Ekong"
@@ -341,6 +370,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#EFCEA5]/50" />
                 <input
                   type="email"
+                  inputMode="email"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  autoComplete="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -358,6 +392,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#EFCEA5]/50" />
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                   required
                   minLength={6}
                   value={password}

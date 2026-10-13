@@ -1,14 +1,25 @@
 import React, { useEffect, useState, useRef } from 'react';
 import Lenis from 'lenis';
 import { gsap } from 'gsap';
-import { SelectedWorksGallery } from '@/components/SelectedWorksGallery';
 import { WorkspacePortal } from '@/components/dashboard/WorkspacePortal';
 import { AuthPage } from '@/components/auth/AuthPage';
 import { workspaceStore } from '@/lib/workspaceStore';
+import { authService } from '@/lib/supabase';
 
 export default function App() {
-  const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
+  const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('workspace') === 'true' || window.location.hash === '#workspace' || window.location.hash === '#portal') {
+        return true;
+      }
+      return localStorage.getItem('teamharvs_workspace_active') === 'true';
+    }
+    return false;
+  });
   const [isAuthPageOpen, setIsAuthPageOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [currentProfile, setCurrentProfile] = useState(null);
   const [workspaceInitialTab, setWorkspaceInitialTab] = useState('overview');
   const [isJoinOpen, setIsJoinOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -25,6 +36,55 @@ export default function App() {
   // Kinetic Stream State
   const [isStreamPaused, setIsStreamPaused] = useState(false);
   const [selectedPreviewImage, setSelectedPreviewImage] = useState(null);
+
+  // Sync workspace active state to localStorage so refresh keeps user in dashboard
+  useEffect(() => {
+    if (isWorkspaceOpen) {
+      try {
+        localStorage.setItem('teamharvs_workspace_active', 'true');
+      } catch {}
+    } else {
+      try {
+        localStorage.removeItem('teamharvs_workspace_active');
+      } catch {}
+    }
+  }, [isWorkspaceOpen]);
+
+  // Sync Supabase Auth session on app boot and listen for state changes
+  useEffect(() => {
+    async function checkSession() {
+      try {
+        const session = await authService.getSession();
+        if (session?.user) {
+          setCurrentUser(session.user);
+          const profile = await authService.getProfile(session.user.id);
+          setCurrentProfile(profile);
+        }
+      } catch (e) {
+        console.warn('Session check failed in App:', e);
+      }
+    }
+    checkSession();
+
+    const { data } = authService.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        setCurrentUser(session.user);
+        const profile = await authService.getProfile(session.user.id);
+        setCurrentProfile(profile);
+      } else {
+        setCurrentUser(null);
+        setCurrentProfile(null);
+        try {
+          localStorage.removeItem('teamharvs_workspace_active');
+        } catch {}
+        setIsWorkspaceOpen(false);
+      }
+    });
+
+    return () => {
+      data?.subscription?.unsubscribe();
+    };
+  }, []);
 
   // 2-Row Dynamic Editorial Gallery Data (Clean, uncluttered layout)
   const streamRow1 = [
@@ -290,7 +350,12 @@ export default function App() {
   if (isWorkspaceOpen) {
     return (
       <WorkspacePortal
-        onBackToSite={() => setIsWorkspaceOpen(false)}
+        onBackToSite={() => {
+          try {
+            localStorage.removeItem('teamharvs_workspace_active');
+          } catch {}
+          setIsWorkspaceOpen(false);
+        }}
         initialTab={workspaceInitialTab}
       />
     );
@@ -322,24 +387,45 @@ export default function App() {
             >
               Workspace CMS &rarr;
             </button>
-            <button 
-              className="nav-item"
-              style={{ 
-                background: 'rgba(239, 206, 165, 0.1)', 
-                border: '1px solid rgba(239, 206, 165, 0.25)', 
-                padding: '0.35rem 0.85rem',
-                borderRadius: '9999px',
-                cursor: 'pointer', 
-                color: 'var(--sand)',
-                fontSize: '0.72rem',
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                fontWeight: 600
-              }}
-              onClick={() => setIsAuthPageOpen(true)}
-            >
-              Sign In
-            </button>
+            {currentUser ? (
+              <button 
+                className="nav-item"
+                style={{ 
+                  background: 'rgba(239, 206, 165, 0.15)', 
+                  border: '1px solid rgba(239, 206, 165, 0.4)', 
+                  padding: '0.35rem 0.85rem',
+                  borderRadius: '9999px',
+                  cursor: 'pointer', 
+                  color: 'var(--sand)',
+                  fontSize: '0.72rem',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  fontWeight: 700
+                }}
+                onClick={() => setIsWorkspaceOpen(true)}
+              >
+                Dashboard ({currentProfile?.full_name?.split(' ')[0] || 'Studio'}) &rarr;
+              </button>
+            ) : (
+              <button 
+                className="nav-item"
+                style={{ 
+                  background: 'rgba(239, 206, 165, 0.1)', 
+                  border: '1px solid rgba(239, 206, 165, 0.25)', 
+                  padding: '0.35rem 0.85rem',
+                  borderRadius: '9999px',
+                  cursor: 'pointer', 
+                  color: 'var(--sand)',
+                  fontSize: '0.72rem',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  fontWeight: 600
+                }}
+                onClick={() => setIsAuthPageOpen(true)}
+              >
+                Sign In
+              </button>
+            )}
           </nav>
 
           <div className="header-right">
@@ -409,10 +495,14 @@ export default function App() {
             style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--sand)' }}
             onClick={() => {
               setIsMobileNavOpen(false);
-              setIsAuthPageOpen(true);
+              if (currentUser) {
+                setIsWorkspaceOpen(true);
+              } else {
+                setIsAuthPageOpen(true);
+              }
             }}
           >
-            Studio Sign In <span>06</span>
+            {currentUser ? (currentProfile?.role === 'admin' ? 'Studio Director Portal' : 'My Workspace Dashboard') : 'Studio Sign In'} <span>06</span>
           </button>
         </nav>
 
@@ -467,52 +557,11 @@ export default function App() {
                   <span className="hero-title-word word-team">Harvs</span>
                 </span>
               </h1>
-              
-              {/* Kinetic Infinity Editorial Marquee */}
-              <div className="hero-marquee-wrapper">
-                <div className="hero-marquee-track">
-                  <span>THINK</span> <span className="star">✦</span>
-                  <span>CREATE</span> <span className="star">✦</span>
-                  <span>LEARN</span> <span className="star">✦</span>
-                  <span>EXECUTE</span> <span className="star">✦</span>
-                  <span>GROW</span> <span className="star">✦</span>
-                  <span>FASHION EDITORIALS</span> <span className="star">✦</span>
-                  <span>COMMERCIAL CAMPAIGNS</span> <span className="star">✦</span>
-                  <span>MODEL DEVELOPMENT</span> <span className="star">✦</span>
-                  <span>35MM MOTION</span> <span className="star">✦</span>
-                  <span>UYO / AKWA IBOM</span> <span className="star">✦</span>
-                  <span>THINK</span> <span className="star">✦</span>
-                  <span>CREATE</span> <span className="star">✦</span>
-                  <span>LEARN</span> <span className="star">✦</span>
-                  <span>EXECUTE</span> <span className="star">✦</span>
-                  <span>GROW</span> <span className="star">✦</span>
-                  <span>FASHION EDITORIALS</span> <span className="star">✦</span>
-                  <span>COMMERCIAL CAMPAIGNS</span> <span className="star">✦</span>
-                  <span>MODEL DEVELOPMENT</span> <span className="star">✦</span>
-                  <span>35MM MOTION</span> <span className="star">✦</span>
-                  <span>UYO / AKWA IBOM</span> <span className="star">✦</span>
-                </div>
-              </div>
             </div>
 
             {/* Multi-Row Infinite Moving Editorial Gallery Stage */}
-            <div className="hero-stream-stage">
+            <div className="hero-stream-stage" id="work">
               
-              {/* Stream Control & Status Bar */}
-              <div className="hero-stream-control-bar">
-                <div className="stream-status">
-                  <span className="stream-live-dot"></span>
-                  <span>Continuous Editorial Stream // 2-Row Dynamic Canvas</span>
-                </div>
-                <button 
-                  className="stream-toggle-btn"
-                  onClick={() => setIsStreamPaused(!isStreamPaused)}
-                  aria-label="Toggle stream motion"
-                >
-                  {isStreamPaused ? '▶ Resume Motion' : '⏸ Pause Motion'}
-                </button>
-              </div>
-
               {/* Edge Gradient Mask Container */}
               <div className={`hero-stream-viewport ${isStreamPaused ? 'paused' : ''}`}>
                 
@@ -527,10 +576,8 @@ export default function App() {
                         title="Click to inspect look"
                       >
                         <img src={item.image} alt={item.title} className="stream-card-img" />
-                        <span className="stream-card-tag">{item.tag}</span>
                         <div className="stream-card-info">
                           <span className="stream-card-title">{item.title}</span>
-                          <span className="stream-card-cat">{item.category}</span>
                         </div>
                       </div>
                     ))}
@@ -548,10 +595,8 @@ export default function App() {
                         title="Click to inspect look"
                       >
                         <img src={item.image} alt={item.title} className="stream-card-img" />
-                        <span className="stream-card-tag">{item.tag}</span>
                         <div className="stream-card-info">
                           <span className="stream-card-title">{item.title}</span>
-                          <span className="stream-card-cat">{item.category}</span>
                         </div>
                       </div>
                     ))}
@@ -579,6 +624,32 @@ export default function App() {
                 <span>Explore Works</span>
                 <span className="scroll-line"></span>
                 <span className="scroll-arrow">↓</span>
+              </div>
+            </div>
+
+            {/* Kinetic Infinity Editorial Marquee (Last Element of Hero Section) */}
+            <div className="hero-marquee-wrapper">
+              <div className="hero-marquee-track">
+                <span>THINK</span> <span className="star">✦</span>
+                <span>CREATE</span> <span className="star">✦</span>
+                <span>LEARN</span> <span className="star">✦</span>
+                <span>EXECUTE</span> <span className="star">✦</span>
+                <span>GROW</span> <span className="star">✦</span>
+                <span>FASHION EDITORIALS</span> <span className="star">✦</span>
+                <span>COMMERCIAL CAMPAIGNS</span> <span className="star">✦</span>
+                <span>MODEL DEVELOPMENT</span> <span className="star">✦</span>
+                <span>35MM MOTION</span> <span className="star">✦</span>
+                <span>UYO / AKWA IBOM</span> <span className="star">✦</span>
+                <span>THINK</span> <span className="star">✦</span>
+                <span>CREATE</span> <span className="star">✦</span>
+                <span>LEARN</span> <span className="star">✦</span>
+                <span>EXECUTE</span> <span className="star">✦</span>
+                <span>GROW</span> <span className="star">✦</span>
+                <span>FASHION EDITORIALS</span> <span className="star">✦</span>
+                <span>COMMERCIAL CAMPAIGNS</span> <span className="star">✦</span>
+                <span>MODEL DEVELOPMENT</span> <span className="star">✦</span>
+                <span>35MM MOTION</span> <span className="star">✦</span>
+                <span>UYO / AKWA IBOM</span> <span className="star">✦</span>
               </div>
             </div>
 
@@ -628,16 +699,10 @@ export default function App() {
           </div>
         </section>
 
-        {/* SECTION: SELECTED WORKS — 3D Perspective Animated Gallery */}
-        <SelectedWorksGallery
-          onOpenJoin={() => setIsJoinOpen(true)}
-          onSelectPreview={(item) => setSelectedPreviewImage(item)}
-        />
-
         {/* SECTION: THE COLLECTIVE — Burgundy & Sand */}
         <section className="section-collective" id="collective">
           <div className="container">
-            <span className="label-sand">04 / Target Audience</span>
+            <span className="label-sand">03 / The Collective</span>
             <h2 className="statement-burgundy" style={{ color: 'var(--cream)' }}>
               Young and emerging creatives ready to step outside their comfort zones.
             </h2>
