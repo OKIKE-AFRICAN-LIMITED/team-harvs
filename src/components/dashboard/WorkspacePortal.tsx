@@ -6,7 +6,8 @@ import {
   LogIn, 
   X,
   Lock,
-  ExternalLink
+  ExternalLink,
+  ShieldAlert
 } from 'lucide-react';
 import { 
   workspaceStore, 
@@ -18,6 +19,8 @@ import {
 } from '@/lib/workspaceStore';
 import { isSupabaseConfigured, authService, type Profile } from '@/lib/supabase';
 import { AuthPage } from '../auth/AuthPage';
+import { DashboardTopBar } from './DashboardTopBar';
+import { DashboardSidebar } from './DashboardSidebar';
 import { AdminDashboard } from './AdminDashboard';
 import { MemberDashboard } from './MemberDashboard';
 
@@ -34,8 +37,14 @@ interface WorkspacePortalProps {
 
 export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
   onBackToSite,
+  initialTab = 'overview',
 }) => {
-  // Store state (Clean slate synced with Supabase)
+  // Navigation & Layout State
+  const [activeTab, setActiveTab] = useState<any>(initialTab);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  // Store data state
   const [applications, setApplications] = useState<Application[]>([]);
   const [lookbook, setLookbook] = useState<LookbookWork[]>([]);
   const [briefs, setBriefs] = useState<ProjectBrief[]>([]);
@@ -56,7 +65,7 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
   const [isAuthPageOpen, setIsAuthPageOpen] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
 
-  // Sync with store
+  // Sync with workspace store
   useEffect(() => {
     const syncData = () => {
       setApplications(workspaceStore.getApplications());
@@ -82,7 +91,6 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
           if (profile) {
             setCurrentProfile(profile);
           } else {
-            // Default profile structure if table row is still creating
             setCurrentProfile({
               id: user.id,
               email: user.email || '',
@@ -129,7 +137,14 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
     };
   }, []);
 
-  // Handle Full-Screen Auth Page
+  // Sign out handler
+  const handleSignOut = async () => {
+    await authService.signOut();
+    setCurrentUser(null);
+    setCurrentProfile(null);
+  };
+
+  // Full-Screen Auth Page
   if (isAuthPageOpen) {
     return (
       <AuthPage
@@ -145,149 +160,153 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
 
   const role = currentProfile?.role || 'member';
 
+  // Counts for sidebar badges
+  const pendingApps = applications.filter((a) => a.status === 'Pending');
+  const activeBriefs = briefs.filter((b) => b.status === 'In Production' || b.status === 'Planning');
+
+  const sidebarCounts = {
+    lookbook: lookbook.length,
+    roster: applications.length,
+    pendingRoster: pendingApps.length,
+    briefs: activeBriefs.length,
+    submissions: submissions.length,
+    assets: assets.length,
+  };
+
+  // Map active tab to a human-readable title for topbar breadcrumb
+  const getTabLabel = (tab: string, currentRole: string) => {
+    if (currentRole === 'admin') {
+      switch (tab) {
+        case 'overview': return 'Studio Overview';
+        case 'lookbook': return 'Lookbook CMS Archive';
+        case 'roster': return 'Talent Roster & CRM';
+        case 'briefs': return 'Production Briefs';
+        case 'submissions': return 'Deliverables QA';
+        case 'assets': return 'Digital Asset Library';
+        default: return 'Studio Management';
+      }
+    } else {
+      switch (tab) {
+        case 'overview': return 'Talent Dossier';
+        case 'briefs': return 'Call Sheets & Shoots';
+        case 'submissions': return 'Deliverables Log';
+        case 'assets': return 'Studio Presets & Kits';
+        default: return 'Talent Workspace';
+      }
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#0C0203] text-[#F8F4EF] flex flex-col antialiased selection:bg-[#EFCEA5] selection:text-[#1F0205]">
+    <div className="h-screen w-screen bg-[#0C0203] text-[#F8F4EF] flex overflow-hidden antialiased selection:bg-[#EFCEA5] selection:text-[#1F0205]">
       
-      {/* ==============================================================
-          TOP LUXURY HEADER BAR (Spacious, Minimalist)
-          ============================================================== */}
-      <header className="sticky top-0 z-40 bg-[#0C0203]/90 backdrop-blur-md border-b border-[#EFCEA5]/10 px-6 sm:px-12 py-5 flex items-center justify-between">
+      {/* 1. DEDICATED STUDIO SIDEBAR (Persistent Desktop, Drawer Mobile) */}
+      <DashboardSidebar
+        role={role}
+        profile={currentProfile}
+        activeTab={activeTab}
+        onSelectTab={(tabId) => setActiveTab(tabId)}
+        counts={sidebarCounts}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        isMobileOpen={isMobileSidebarOpen}
+        onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        onBackToSite={onBackToSite}
+        onSignOut={handleSignOut}
+        onOpenNewLook={() => setIsNewLookOpen(true)}
+        onOpenNewBrief={() => setIsNewBriefOpen(true)}
+        onOpenNewAsset={() => setIsNewAssetOpen(true)}
+        onOpenSubmitDeliverable={() => setIsSubmitDeliverableOpen(true)}
+      />
+
+      {/* 2. MAIN WORKSPACE CONTAINER (Top Bar + Scrollable Content) */}
+      <div className="flex-1 flex flex-col h-screen min-w-0 overflow-hidden bg-[#0C0203]">
         
-        {/* Brand & Left Navigation */}
-        <div className="flex items-center gap-6">
-          <button
-            onClick={onBackToSite}
-            className="flex items-center gap-2.5 text-xs text-[#EFCEA5] hover:text-white uppercase tracking-wider font-semibold transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Return to Portfolio</span>
-          </button>
+        {/* DEDICATED TOP BAR */}
+        <DashboardTopBar
+          role={role}
+          profile={currentProfile}
+          user={currentUser}
+          activeTabLabel={getTabLabel(activeTab, role)}
+          isSidebarCollapsed={isSidebarCollapsed}
+          onToggleSidebarCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          onToggleMobileSidebar={() => setIsMobileSidebarOpen(true)}
+          onBackToSite={onBackToSite}
+          onSignOut={handleSignOut}
+          onOpenNewLook={() => setIsNewLookOpen(true)}
+          onOpenNewBrief={() => setIsNewBriefOpen(true)}
+          onOpenNewAsset={() => setIsNewAssetOpen(true)}
+          onOpenSubmitDeliverable={() => setIsSubmitDeliverableOpen(true)}
+        />
 
-          <div className="h-4 w-px bg-[#EFCEA5]/20 hidden sm:block" />
-
-          <div className="flex items-center gap-3">
-            <img 
-              src="/assets/th-monogram-cream.png" 
-              alt="Team Harvs" 
-              className="w-7 h-7 object-contain"
-            />
-            <div>
-              <span className="text-sm font-serif text-[#F8F4EF] tracking-wide block leading-none">
-                Team Harvs
-              </span>
-              <span className="text-[0.62rem] tracking-[0.2em] text-[#EFCEA5]/60 uppercase font-mono block mt-1">
-                {role === 'admin' ? 'Studio Command Center' : 'Talent Workspace'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* User Pill & Sign Out */}
-        <div className="flex items-center gap-3">
-          {currentUser ? (
-            <div className="flex items-center gap-3 pl-3 pr-2 py-1.5 rounded-full bg-[#170204] border border-[#EFCEA5]/20 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="text-[#F8F4EF] font-medium truncate max-w-[150px] sm:max-w-[200px]">
-                  {currentProfile?.full_name || currentUser.email}
-                </span>
-                <span className={`text-[0.62rem] px-2.5 py-0.5 rounded-full uppercase font-bold tracking-wider ${
-                  role === 'admin' 
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' 
-                    : 'bg-[#EFCEA5]/15 text-[#EFCEA5] border border-[#EFCEA5]/20'
-                }`}>
-                  {role === 'admin' ? 'Studio Director' : 'Talent Member'}
-                </span>
+        {/* SCROLLABLE DASHBOARD CANVAS */}
+        <main className="flex-1 overflow-y-auto px-4 sm:px-8 lg:px-12 py-8 bg-[#0C0203] scrollbar-thin scrollbar-thumb-white/10">
+          
+          {/* If user is not authenticated: Show luxury studio access gate */}
+          {!currentUser ? (
+            <div className="py-20 text-center max-w-xl mx-auto space-y-6 animate-fade-in">
+              <div className="w-16 h-16 rounded-full bg-[#170204] border border-[#EFCEA5]/20 flex items-center justify-center mx-auto text-[#EFCEA5] shadow-lg">
+                <Lock className="w-7 h-7" />
               </div>
 
-              <button
-                onClick={async () => {
-                  await authService.signOut();
-                  setCurrentUser(null);
-                  setCurrentProfile(null);
-                }}
-                title="Sign Out"
-                className="p-1.5 rounded-full text-[#EFCEA5]/60 hover:text-rose-400 hover:bg-rose-950/40 transition-colors"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-              </button>
+              <div className="space-y-2">
+                <span className="text-[0.68rem] tracking-[0.24em] uppercase text-[#EFCEA5] font-mono font-semibold block">
+                  Restricted Studio Access
+                </span>
+                <h2 className="text-3xl sm:text-4xl font-serif text-[#F8F4EF]">
+                  Studio Workspace Authentication Required
+                </h2>
+                <p className="text-xs sm:text-sm text-[#EFCEA5]/70 leading-relaxed font-sans pt-2">
+                  Sign in with your creative credentials to access your talent call sheets, submit shoot deliverables, or access the administrative CMS.
+                </p>
+              </div>
+
+              <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
+                <button
+                  onClick={() => setIsAuthPageOpen(true)}
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-full text-xs font-bold uppercase tracking-wider bg-[#EFCEA5] text-[#1F0205] hover:bg-[#F8F4EF] transition-all shadow-xl hover:scale-105"
+                >
+                  Sign In to Studio Portal &rarr;
+                </button>
+                <button
+                  onClick={onBackToSite}
+                  className="w-full sm:w-auto px-6 py-3.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-white/5 hover:bg-white/10 text-[#EFCEA5] border border-[#EFCEA5]/20 transition-all"
+                >
+                  Return to Public Portfolio
+                </button>
+              </div>
             </div>
+          ) : role === 'admin' ? (
+            /* ADMIN DASHBOARD for Studio Directors */
+            <AdminDashboard
+              applications={applications}
+              lookbook={lookbook}
+              briefs={briefs}
+              assets={assets}
+              submissions={submissions}
+              activeTab={activeTab}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+              onOpenNewLook={() => setIsNewLookOpen(true)}
+              onOpenNewBrief={() => setIsNewBriefOpen(true)}
+              onOpenNewAsset={() => setIsNewAssetOpen(true)}
+              onSelectApplicant={(app) => setSelectedApplicant(app)}
+              onPreviewLook={(work) => setPreviewLookWork(work)}
+            />
           ) : (
-            <button
-              onClick={() => setIsAuthPageOpen(true)}
-              className="flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold uppercase tracking-wider bg-[#EFCEA5] text-[#1F0205] hover:bg-[#F8F4EF] transition-all shadow-md"
-            >
-              <LogIn className="w-3.5 h-3.5" /> Sign In / Register
-            </button>
+            /* MEMBER DASHBOARD for Creative Talent */
+            <MemberDashboard
+              profile={currentProfile}
+              briefs={briefs}
+              assets={assets}
+              submissions={submissions}
+              activeTab={activeTab}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+              onOpenSubmitDeliverable={() => setIsSubmitDeliverableOpen(true)}
+            />
           )}
-        </div>
 
-      </header>
+        </main>
 
-      {/* ==============================================================
-          MAIN CONTENT VIEW (Strictly Governed by Profile Role)
-          ============================================================== */}
-      <main className="flex-1 p-6 sm:p-10 lg:p-16 max-w-7xl w-full mx-auto">
-        
-        {/* If user is not authenticated: Show luxury gateway invitation */}
-        {!currentUser ? (
-          <div className="py-20 text-center max-w-xl mx-auto space-y-6 animate-fade-in">
-            <div className="w-16 h-16 rounded-full bg-[#170204] border border-[#EFCEA5]/20 flex items-center justify-center mx-auto text-[#EFCEA5]">
-              <Lock className="w-7 h-7" />
-            </div>
-
-            <div className="space-y-2">
-              <span className="text-[0.68rem] tracking-[0.24em] uppercase text-[#EFCEA5] font-semibold block">
-                Restricted Studio Access
-              </span>
-              <h2 className="text-3xl sm:text-4xl font-serif text-[#F8F4EF]">
-                Studio Workspace Authentication Required
-              </h2>
-              <p className="text-xs sm:text-sm text-[#EFCEA5]/70 leading-relaxed font-sans pt-2">
-                Sign in with your creative credentials to access your talent call sheets, submit shoot deliverables, or access the administrative CMS.
-              </p>
-            </div>
-
-            <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <button
-                onClick={() => setIsAuthPageOpen(true)}
-                className="w-full sm:w-auto px-8 py-3.5 rounded-full text-xs font-bold uppercase tracking-wider bg-[#EFCEA5] text-[#1F0205] hover:bg-[#F8F4EF] transition-all shadow-xl hover:scale-105"
-              >
-                Sign In to Studio Portal &rarr;
-              </button>
-              <button
-                onClick={onBackToSite}
-                className="w-full sm:w-auto px-6 py-3.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-white/5 hover:bg-white/10 text-[#EFCEA5] border border-[#EFCEA5]/20 transition-all"
-              >
-                Return to Public Portfolio
-              </button>
-            </div>
-          </div>
-        ) : role === 'admin' ? (
-          /* Strictly ADMIN DASHBOARD for Studio Directors */
-          <AdminDashboard
-            applications={applications}
-            lookbook={lookbook}
-            briefs={briefs}
-            assets={assets}
-            submissions={submissions}
-            onOpenNewLook={() => setIsNewLookOpen(true)}
-            onOpenNewBrief={() => setIsNewBriefOpen(true)}
-            onOpenNewAsset={() => setIsNewAssetOpen(true)}
-            onSelectApplicant={(app) => setSelectedApplicant(app)}
-            onPreviewLook={(work) => setPreviewLookWork(work)}
-          />
-        ) : (
-          /* Strictly MEMBER DASHBOARD for Creative Talent */
-          <MemberDashboard
-            profile={currentProfile}
-            briefs={briefs}
-            assets={assets}
-            submissions={submissions}
-            onOpenSubmitDeliverable={() => setIsSubmitDeliverableOpen(true)}
-          />
-        )}
-
-      </main>
+      </div>
 
       {/* ==============================================================
           STUDIO MODALS
