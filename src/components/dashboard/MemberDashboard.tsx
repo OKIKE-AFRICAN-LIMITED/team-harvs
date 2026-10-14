@@ -14,7 +14,7 @@ import {
   ArrowUpRight,
   ShieldCheck
 } from 'lucide-react';
-import { ProjectBrief, CreativeAsset, MemberSubmission } from '@/lib/workspaceStore';
+import { ProjectBrief, CreativeAsset, MemberSubmission, workspaceStore } from '@/lib/workspaceStore';
 import type { Profile } from '@/lib/supabase';
 
 export interface MemberDashboardProps {
@@ -37,6 +37,20 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
   onOpenSubmitDeliverable,
 }) => {
   const activeBriefs = briefs.filter((b) => b.status === 'In Production' || b.status === 'Planning');
+
+  // Record member brief view interaction for audit tracking
+  React.useEffect(() => {
+    if (activeTab === 'briefs' && profile?.id && activeBriefs.length > 0) {
+      activeBriefs.forEach((b) => {
+        workspaceStore.recordBriefView(b.id, {
+          id: profile.id,
+          name: profile.full_name,
+          email: profile.email,
+          discipline: profile.discipline,
+        });
+      });
+    }
+  }, [activeTab, profile, activeBriefs]);
 
   return (
     <div className="space-y-8 animate-fade-in pb-16 max-w-6xl mx-auto">

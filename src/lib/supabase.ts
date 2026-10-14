@@ -1,5 +1,5 @@
 import { createClient, type User, type Session } from '@supabase/supabase-js';
-import type { Application, LookbookWork, ProjectBrief, CreativeAsset, MemberSubmission } from './workspaceStore';
+import type { Application, LookbookWork, ProjectBrief, CreativeAsset, MemberSubmission, HeroStreamItem, BriefInteraction } from './workspaceStore';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -181,7 +181,7 @@ export const supabaseService = {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .order('full_name', { ascending: true });
+      .order('created_at', { ascending: false });
     if (error) {
       console.warn('Supabase getProfiles error:', error);
       return null;
@@ -375,6 +375,37 @@ export const supabaseService = {
     }));
   },
 
+  async insertAsset(asset: Omit<CreativeAsset, 'id' | 'date'>): Promise<CreativeAsset | null> {
+    if (!isSupabaseConfigured) return null;
+    const { data, error } = await supabase
+      .from('creative_assets')
+      .insert([{
+        title: asset.title,
+        category: asset.category,
+        file_type: asset.fileType,
+        file_size: asset.fileSize,
+        download_url: asset.downloadUrl,
+        tags: asset.tags,
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase insertAsset error:', error);
+      return null;
+    }
+    return {
+      id: data.id,
+      title: data.title,
+      category: data.category,
+      fileType: data.file_type,
+      fileSize: data.file_size,
+      downloadUrl: data.download_url,
+      tags: data.tags || [],
+      date: 'Just now',
+    };
+  },
+
   // --- Member Submissions ---
   async getSubmissions(memberId?: string): Promise<MemberSubmission[] | null> {
     if (!isSupabaseConfigured) return null;
@@ -443,5 +474,151 @@ export const supabaseService = {
       .update(updates)
       .eq('id', id);
     return !error;
+  },
+
+  // --- User Role & Status Management ---
+
+  async updateProfileRole(userId: string, role: 'admin' | 'member'): Promise<boolean> {
+    if (!isSupabaseConfigured) return false;
+    const { error } = await supabase
+      .from('profiles')
+      .update({ role, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+
+    if (error) {
+      console.error('Supabase updateProfileRole error:', error);
+      return false;
+    }
+    return true;
+  },
+
+  async updateProfileStatus(userId: string, status: 'active' | 'inactive'): Promise<boolean> {
+    if (!isSupabaseConfigured) return false;
+    const { error } = await supabase
+      .from('profiles')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+
+    if (error) {
+      console.error('Supabase updateProfileStatus error:', error);
+      return false;
+    }
+    return true;
+  },
+
+  // --- Hero Stream CMS ---
+  async getHeroStream(): Promise<HeroStreamItem[] | null> {
+    if (!isSupabaseConfigured) return null;
+    const { data, error } = await supabase
+      .from('hero_stream_items')
+      .select('*')
+      .order('order_index', { ascending: true });
+
+    if (error) {
+      console.warn('Supabase getHeroStream error (table might need creation):', error.message);
+      return null;
+    }
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      title: row.title,
+      category: row.category,
+      tag: row.tag,
+      image: row.image,
+      rowNumber: (row.row_number || 1) as 1 | 2,
+      orderIndex: row.order_index || 0,
+    }));
+  },
+
+  async upsertHeroStreamItem(item: Partial<HeroStreamItem> & { id: string }): Promise<HeroStreamItem | null> {
+    if (!isSupabaseConfigured) return null;
+    const payload: any = {
+      id: item.id,
+      title: item.title,
+      category: item.category,
+      tag: item.tag,
+      image: item.image,
+      row_number: item.rowNumber,
+      order_index: item.orderIndex,
+      updated_at: new Date().toISOString(),
+    };
+    // remove undefined keys
+    Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
+
+    const { data, error } = await supabase
+      .from('hero_stream_items')
+      .upsert([payload])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase upsertHeroStreamItem error:', error);
+      return null;
+    }
+    return {
+      id: data.id,
+      title: data.title,
+      category: data.category,
+      tag: data.tag,
+      image: data.image,
+      rowNumber: data.row_number,
+      orderIndex: data.order_index,
+    };
+  },
+
+  async deleteHeroStreamItem(id: string): Promise<boolean> {
+    if (!isSupabaseConfigured) return false;
+    const { error } = await supabase
+      .from('hero_stream_items')
+      .delete()
+      .eq('id', id);
+    return !error;
+  },
+
+  // --- Brief Interactions (Clicked vs Submitted Engagement Audit) ---
+  async getBriefInteractions(briefId?: string): Promise<BriefInteraction[] | null> {
+    if (!isSupabaseConfigured) return null;
+    let query = supabase.from('brief_interactions').select('*').order('created_at', { ascending: false });
+    if (briefId) {
+      query = query.eq('brief_id', briefId);
+    }
+    const { data, error } = await query;
+    if (error) {
+      console.warn('Supabase getBriefInteractions error:', error.message);
+      return null;
+    }
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      briefId: row.brief_id,
+      userId: row.user_id,
+      userName: row.user_name,
+      userEmail: row.user_email,
+      discipline: row.discipline,
+      viewedAt: row.viewed_at || row.created_at,
+      submitted: Boolean(row.submitted),
+      submittedAt: row.submitted_at,
+    }));
+  },
+
+  async recordBriefInteraction(interaction: BriefInteraction): Promise<boolean> {
+    if (!isSupabaseConfigured) return false;
+    const { error } = await supabase
+      .from('brief_interactions')
+      .upsert([{
+        id: interaction.id,
+        brief_id: interaction.briefId,
+        user_id: interaction.userId,
+        user_name: interaction.userName,
+        user_email: interaction.userEmail,
+        discipline: interaction.discipline,
+        viewed_at: interaction.viewedAt,
+        submitted: interaction.submitted,
+        submitted_at: interaction.submittedAt || null,
+      }], { onConflict: 'brief_id,user_id' });
+
+    if (error) {
+      console.warn('Supabase recordBriefInteraction error:', error.message);
+      return false;
+    }
+    return true;
   },
 };

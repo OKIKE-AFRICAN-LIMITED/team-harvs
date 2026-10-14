@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { X, UploadCloud, Tag } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, UploadCloud, Tag, FileText, Link2, Check, Loader2 } from 'lucide-react';
 import { workspaceStore, CreativeAsset } from '@/lib/workspaceStore';
+import { uploadLocalFile } from '@/lib/fileUpload';
 
 interface NewAssetModalProps {
   isOpen: boolean;
@@ -17,7 +18,34 @@ export const NewAssetModal: React.FC<NewAssetModalProps> = ({ isOpen, onClose })
     tagsInput: 'Brand, Guidelines, Production',
   });
 
+  const [uploadMode, setUploadMode] = useState<'device' | 'url'>('device');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   if (!isOpen) return null;
+
+  const handleDeviceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      const res = await uploadLocalFile(file, 'assets');
+      setUploadedFileName(file.name);
+      setFormData((prev) => ({
+        ...prev,
+        title: prev.title || file.name.replace(/\.[^/.]+$/, ''),
+        downloadUrl: res.url,
+        fileSize: res.size,
+        fileType: res.type.toUpperCase() || 'FILE',
+      }));
+    } catch (err) {
+      console.error('Asset upload failed:', err);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +77,86 @@ export const NewAssetModal: React.FC<NewAssetModalProps> = ({ isOpen, onClose })
           </button>
         </div>
 
+        {/* Upload Mode Selector */}
+        <div className="flex items-center justify-center p-1 rounded-xl bg-black/40 border border-[#EFCEA5]/15 mb-5 text-xs">
+          <button
+            type="button"
+            onClick={() => setUploadMode('device')}
+            className={`flex-1 py-2 rounded-lg font-semibold uppercase tracking-wider text-[0.68rem] flex items-center justify-center gap-1.5 transition-colors ${
+              uploadMode === 'device' ? 'bg-[#EFCEA5] text-[#1F0205]' : 'text-[#EFCEA5]/70 hover:text-[#EFCEA5]'
+            }`}
+          >
+            <UploadCloud className="w-3.5 h-3.5" /> Device File Upload
+          </button>
+          <button
+            type="button"
+            onClick={() => setUploadMode('url')}
+            className={`flex-1 py-2 rounded-lg font-semibold uppercase tracking-wider text-[0.68rem] flex items-center justify-center gap-1.5 transition-colors ${
+              uploadMode === 'url' ? 'bg-[#EFCEA5] text-[#1F0205]' : 'text-[#EFCEA5]/70 hover:text-[#EFCEA5]'
+            }`}
+          >
+            <Link2 className="w-3.5 h-3.5" /> External URL / Cloud Link
+          </button>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
+          
+          {uploadMode === 'device' ? (
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                onChange={handleDeviceUpload}
+                className="hidden"
+              />
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="p-6 rounded-xl border-2 border-dashed border-[#EFCEA5]/25 hover:border-[#EFCEA5]/60 bg-black/20 hover:bg-black/40 transition-all text-center cursor-pointer group"
+              >
+                {isUploading ? (
+                  <div className="flex flex-col items-center justify-center gap-2 py-3">
+                    <Loader2 className="w-6 h-6 text-[#EFCEA5] animate-spin" />
+                    <span className="text-xs text-[#EFCEA5]">Processing resource upload...</span>
+                  </div>
+                ) : uploadedFileName ? (
+                  <div className="flex flex-col items-center justify-center gap-1.5 py-1">
+                    <Check className="w-6 h-6 text-emerald-400" />
+                    <span className="text-xs font-serif text-[#F8F4EF] font-medium">{uploadedFileName}</span>
+                    <span className="text-[0.65rem] text-[#EFCEA5]/70">
+                      {formData.fileType} &bull; {formData.fileSize} (Click to replace file)
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <UploadCloud className="w-8 h-8 text-[#EFCEA5]/50 group-hover:text-[#EFCEA5] transition-colors" />
+                    <div>
+                      <span className="text-xs font-serif text-[#F8F4EF] block font-medium">
+                        Click to select asset file from your device
+                      </span>
+                      <span className="text-[0.68rem] text-[#EFCEA5]/60 block mt-0.5">
+                        PDF, ZIP, .CUBE LUTs, PSD, AI, or DOCX documents
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-xs uppercase tracking-wider text-[#EFCEA5]/80 mb-1.5 flex items-center gap-1">
+                <Link2 className="w-3.5 h-3.5" /> Resource Download / Cloud Link
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.downloadUrl}
+                onChange={(e) => setFormData({ ...formData, downloadUrl: e.target.value })}
+                placeholder="https://drive.google.com/... or https://dropbox.com/..."
+                className="w-full bg-[#2A050A] border border-[#EFCEA5]/20 rounded-lg px-3.5 py-2.5 text-sm text-[#F8F4EF] focus:outline-none focus:border-[#EFCEA5]"
+              />
+            </div>
+          )}
+
           <div>
             <label className="block text-xs uppercase tracking-wider text-[#EFCEA5]/80 mb-1.5">
               Resource Title
@@ -112,30 +219,17 @@ export const NewAssetModal: React.FC<NewAssetModalProps> = ({ isOpen, onClose })
             </div>
 
             <div>
-              <label className="block text-xs uppercase tracking-wider text-[#EFCEA5]/80 mb-1.5">
-                Resource Link / URL
+              <label className="block text-xs uppercase tracking-wider text-[#EFCEA5]/80 mb-1.5 flex items-center gap-1">
+                <Tag className="w-3.5 h-3.5" /> Tags
               </label>
               <input
                 type="text"
-                value={formData.downloadUrl}
-                onChange={(e) => setFormData({ ...formData, downloadUrl: e.target.value })}
-                placeholder="Cloud Storage / Drive Link"
+                value={formData.tagsInput}
+                onChange={(e) => setFormData({ ...formData, tagsInput: e.target.value })}
+                placeholder="e.g. Call Sheet, Autumn"
                 className="w-full bg-[#2A050A] border border-[#EFCEA5]/20 rounded-lg px-3.5 py-2.5 text-sm text-[#F8F4EF] focus:outline-none focus:border-[#EFCEA5]"
               />
             </div>
-          </div>
-
-          <div>
-            <label className="block text-xs uppercase tracking-wider text-[#EFCEA5]/80 mb-1.5 flex items-center gap-1">
-              <Tag className="w-3.5 h-3.5" /> Tags (comma separated)
-            </label>
-            <input
-              type="text"
-              value={formData.tagsInput}
-              onChange={(e) => setFormData({ ...formData, tagsInput: e.target.value })}
-              placeholder="e.g. Call Sheet, Autumn, Schedule, Models"
-              className="w-full bg-[#2A050A] border border-[#EFCEA5]/20 rounded-lg px-3.5 py-2.5 text-sm text-[#F8F4EF] focus:outline-none focus:border-[#EFCEA5]"
-            />
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#EFCEA5]/15 mt-6">

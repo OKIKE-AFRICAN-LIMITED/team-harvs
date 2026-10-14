@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     email TEXT NOT NULL,
     full_name TEXT NOT NULL DEFAULT '',
     role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('admin', 'member')),
-    discipline TEXT DEFAULT 'Model',
+    discipline TEXT DEFAULT 'Models',
     phone TEXT,
     instagram_url TEXT,
     portfolio_url TEXT,
@@ -34,8 +34,8 @@ BEGIN
         NEW.id,
         NEW.email,
         COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
-        COALESCE(NEW.raw_user_meta_data->>'role', 'member'),
-        COALESCE(NEW.raw_user_meta_data->>'discipline', 'Model')
+        'member',
+        COALESCE(NEW.raw_user_meta_data->>'discipline', 'Models')
     )
     ON CONFLICT (id) DO UPDATE
     SET 
@@ -62,7 +62,21 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
 -- ==========================================================
--- 2. APPLICATIONS TABLE (Public Open-Call Talent Submissions)
+-- 2. HERO STREAM ITEMS TABLE (Editable Hero Kinetic Stream)
+-- ==========================================================
+CREATE TABLE IF NOT EXISTS public.hero_stream_items (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    title TEXT NOT NULL,
+    category TEXT NOT NULL,
+    tag TEXT,
+    image TEXT NOT NULL,
+    row_number INT NOT NULL DEFAULT 1 CHECK (row_number IN (1, 2)),
+    order_index INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- ==========================================================
+-- 3. APPLICATIONS TABLE (Public Open-Call Talent Submissions)
 -- ==========================================================
 CREATE TABLE IF NOT EXISTS public.applications (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -77,7 +91,7 @@ CREATE TABLE IF NOT EXISTS public.applications (
 );
 
 -- ==========================================================
--- 3. LOOKBOOK WORKS TABLE (Public & Editorial CMS Gallery)
+-- 4. LOOKBOOK WORKS TABLE (Public & Editorial CMS Gallery)
 -- ==========================================================
 CREATE TABLE IF NOT EXISTS public.lookbook_works (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -85,7 +99,7 @@ CREATE TABLE IF NOT EXISTS public.lookbook_works (
     category TEXT NOT NULL,
     tag TEXT,
     image TEXT NOT NULL,
-    discipline TEXT DEFAULT 'Editorial',
+    discipline TEXT DEFAULT 'Models',
     featured BOOLEAN DEFAULT false,
     photographer TEXT,
     stylist TEXT,
@@ -96,7 +110,7 @@ CREATE TABLE IF NOT EXISTS public.lookbook_works (
 );
 
 -- ==========================================================
--- 4. PROJECT BRIEFS TABLE (Production Schedules & Call Sheets)
+-- 5. PROJECT BRIEFS TABLE (Production Schedules & Call Sheets)
 -- ==========================================================
 CREATE TABLE IF NOT EXISTS public.project_briefs (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -116,12 +130,28 @@ CREATE TABLE IF NOT EXISTS public.project_briefs (
 );
 
 -- ==========================================================
--- 5. CREATIVE ASSETS TABLE (Digital Asset Manager / Studio Kits)
+-- 6. BRIEF INTERACTIONS TABLE (Auditing: Clicked vs. Submitted)
+-- ==========================================================
+CREATE TABLE IF NOT EXISTS public.brief_interactions (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    brief_id TEXT NOT NULL,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_name TEXT NOT NULL,
+    user_email TEXT,
+    discipline TEXT,
+    viewed_at TIMESTAMPTZ DEFAULT now(),
+    submitted BOOLEAN DEFAULT false,
+    submitted_at TIMESTAMPTZ,
+    UNIQUE(brief_id, user_id)
+);
+
+-- ==========================================================
+-- 7. CREATIVE ASSETS TABLE (Digital Asset Manager / Studio Kits)
 -- ==========================================================
 CREATE TABLE IF NOT EXISTS public.creative_assets (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     title TEXT NOT NULL,
-    category TEXT NOT NULL CHECK (category IN ('Brand Assets', 'Call Sheets', 'Moodboards', 'Presets', 'Guidelines')),
+    category TEXT NOT NULL,
     file_type TEXT,
     file_size TEXT,
     download_url TEXT NOT NULL,
@@ -130,7 +160,7 @@ CREATE TABLE IF NOT EXISTS public.creative_assets (
 );
 
 -- ==========================================================
--- 6. MEMBER SUBMISSIONS TABLE (Work Deliverables & Review)
+-- 8. MEMBER SUBMISSIONS TABLE (Work Deliverables & Review)
 -- ==========================================================
 CREATE TABLE IF NOT EXISTS public.member_submissions (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -139,7 +169,8 @@ CREATE TABLE IF NOT EXISTS public.member_submissions (
     member_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     member_name TEXT NOT NULL,
     role TEXT,
-    link TEXT NOT NULL,
+    link TEXT DEFAULT '',
+    pdf_url TEXT DEFAULT '',
     notes TEXT,
     status TEXT NOT NULL DEFAULT 'Submitted' CHECK (status IN ('Submitted', 'Approved', 'Revision Requested')),
     admin_feedback TEXT,
@@ -151,94 +182,119 @@ CREATE TABLE IF NOT EXISTS public.member_submissions (
 -- ==========================================================
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hero_stream_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.applications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.lookbook_works ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.project_briefs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.brief_interactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.creative_assets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.member_submissions ENABLE ROW LEVEL SECURITY;
 
 -- --- PROFILES POLICIES ---
--- Any authenticated user can read profiles (to view collective roster)
-CREATE POLICY "Allow authenticated read profiles"
+-- Any authenticated user or public can read active profiles (directory)
+DROP POLICY IF EXISTS "Allow read profiles" ON public.profiles;
+CREATE POLICY "Allow read profiles"
 ON public.profiles FOR SELECT
-USING (auth.role() = 'authenticated');
+USING (true);
 
--- Public can view active roster profiles
-CREATE POLICY "Allow public read active profiles"
-ON public.profiles FOR SELECT
-USING (status = 'active');
-
--- Users can update their own profile; admins can update any profile
+-- Users can update own profile; admins can update any profile (role, status, discipline)
+DROP POLICY IF EXISTS "Allow users update own profile or admin" ON public.profiles;
 CREATE POLICY "Allow users update own profile or admin"
 ON public.profiles FOR UPDATE
 USING (auth.uid() = id OR public.is_admin());
 
+-- --- HERO STREAM ITEMS POLICIES ---
+DROP POLICY IF EXISTS "Allow public read hero_stream_items" ON public.hero_stream_items;
+CREATE POLICY "Allow public read hero_stream_items"
+ON public.hero_stream_items FOR SELECT
+USING (true);
+
+DROP POLICY IF EXISTS "Allow admin manage hero_stream_items" ON public.hero_stream_items;
+CREATE POLICY "Allow admin manage hero_stream_items"
+ON public.hero_stream_items FOR ALL
+USING (public.is_admin() OR auth.role() = 'authenticated');
+
 -- --- APPLICATIONS POLICIES ---
--- Public can submit open call applications
+DROP POLICY IF EXISTS "Allow public insert applications" ON public.applications;
 CREATE POLICY "Allow public insert applications"
 ON public.applications FOR INSERT
 WITH CHECK (true);
 
--- Admins can read, update, and manage applications
+DROP POLICY IF EXISTS "Allow admin manage applications" ON public.applications;
 CREATE POLICY "Allow admin manage applications"
 ON public.applications FOR ALL
 USING (public.is_admin() OR auth.role() = 'authenticated');
 
 -- --- LOOKBOOK WORKS POLICIES ---
--- Public can view published lookbook works
+DROP POLICY IF EXISTS "Allow public read lookbook" ON public.lookbook_works;
 CREATE POLICY "Allow public read lookbook"
 ON public.lookbook_works FOR SELECT
 USING (true);
 
--- Admins can publish, update, and delete lookbook works
+DROP POLICY IF EXISTS "Allow admin manage lookbook" ON public.lookbook_works;
 CREATE POLICY "Allow admin manage lookbook"
 ON public.lookbook_works FOR ALL
 USING (public.is_admin() OR auth.role() = 'authenticated');
 
 -- --- PROJECT BRIEFS POLICIES ---
--- Authenticated members and admins can view project briefs
+DROP POLICY IF EXISTS "Allow authenticated read briefs" ON public.project_briefs;
 CREATE POLICY "Allow authenticated read briefs"
 ON public.project_briefs FOR SELECT
-USING (auth.role() = 'authenticated');
+USING (true);
 
--- Admins can create and manage project briefs
+DROP POLICY IF EXISTS "Allow admin manage briefs" ON public.project_briefs;
 CREATE POLICY "Allow admin manage briefs"
 ON public.project_briefs FOR ALL
 USING (public.is_admin() OR auth.role() = 'authenticated');
 
--- --- CREATIVE ASSETS POLICIES ---
--- Authenticated users can view and download assets
-CREATE POLICY "Allow authenticated read assets"
-ON public.creative_assets FOR SELECT
-USING (auth.role() = 'authenticated');
+-- --- BRIEF INTERACTIONS POLICIES ---
+DROP POLICY IF EXISTS "Allow manage own interactions" ON public.brief_interactions;
+CREATE POLICY "Allow manage own interactions"
+ON public.brief_interactions FOR ALL
+USING (auth.uid() = user_id OR public.is_admin() OR auth.role() = 'authenticated');
 
--- Admins can manage assets
+-- --- CREATIVE ASSETS POLICIES ---
+DROP POLICY IF EXISTS "Allow read assets" ON public.creative_assets;
+CREATE POLICY "Allow read assets"
+ON public.creative_assets FOR SELECT
+USING (true);
+
+DROP POLICY IF EXISTS "Allow admin manage assets" ON public.creative_assets;
 CREATE POLICY "Allow admin manage assets"
 ON public.creative_assets FOR ALL
 USING (public.is_admin() OR auth.role() = 'authenticated');
 
 -- --- MEMBER SUBMISSIONS POLICIES ---
--- Members can view their own submissions; admins can view all
+DROP POLICY IF EXISTS "Allow members and admins read submissions" ON public.member_submissions;
 CREATE POLICY "Allow members and admins read submissions"
 ON public.member_submissions FOR SELECT
 USING (auth.uid() = member_id OR public.is_admin() OR auth.role() = 'authenticated');
 
--- Members can insert submissions
-CREATE POLICY "Allow authenticated insert submissions"
+DROP POLICY IF EXISTS "Allow insert submissions" ON public.member_submissions;
+CREATE POLICY "Allow insert submissions"
 ON public.member_submissions FOR INSERT
 WITH CHECK (auth.role() = 'authenticated');
 
--- Members can update own submission, admins can review and update status
+DROP POLICY IF EXISTS "Allow update submissions" ON public.member_submissions;
 CREATE POLICY "Allow update submissions"
 ON public.member_submissions FOR UPDATE
 USING (auth.uid() = member_id OR public.is_admin() OR auth.role() = 'authenticated');
 
 -- ==========================================================
--- SEED DATA (Team Harvs Initial Lookbook Portfolio)
+-- SEED DATA FOR HERO STREAM (2 Rows, Initial Looks)
 -- ==========================================================
-INSERT INTO public.lookbook_works (id, title, category, tag, image, discipline, featured, photographer, stylist, model, season)
+INSERT INTO public.hero_stream_items (id, title, category, tag, image, row_number, order_index)
 VALUES
-('sw-01', 'Silhouettes in Clay', 'Editorial Direction', 'Look 01 // Clay', 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=80', 'Stylist', true, 'Emeka Okafor', 'Aniekeme Bassey', 'Imo Ekong', 'Autumn 2026'),
-('sw-02', 'High-Contrast Monochrome', 'Campaign Tailoring', 'Look 02 // Mono', 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1200&q=80', 'Photographer', true, 'David Okon', 'Aniekeme Bassey', 'Imo Ekong', 'Autumn 2026'),
-('sw-03', 'Oversized Silhouette', 'Menswear Editorial', 'Look 03 // Cut', 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1200&q=80', 'Stylist', false, 'Emeka Okafor', 'Aniekeme Bassey', 'David Okon', 'Autumn 2026')
+('hs-01', 'Solitude in Crimson', 'Fashion & Editorial Tailoring', 'Look 01 // Autumn', '/assets/images/editorial_hero.jpg', 1, 1),
+('hs-02', 'Double-Breasted Cut', 'Avant-Garde Silhouette', 'Look 02 // Tailoring', '/assets/images/avant_garde_fashion.jpg', 1, 2),
+('hs-03', 'Urban Concrete', 'Commercial Campaign Lookbook', 'Look 03 // Commercial', '/assets/images/campaign_lookbook.jpg', 1, 3),
+('hs-04', 'Model Development', 'Editorial Talent Dossier', 'Look 04 // Roster', '/assets/images/model_portrait.jpg', 1, 4),
+('hs-05', 'Architectural Motion', 'High-Fashion Outerwear', 'Look 05 // Movement', '/assets/images/fashion_motion_still.jpg', 1, 5),
+('hs-06', 'Studio Process', 'BTS & 35mm Cinema Motion', 'Look 06 // 35mm Motion', '/assets/images/creative_production_bts.jpg', 1, 6),
+('hs-07', 'Burgundy & Cream', 'Color Direction & Form', 'Look 07 // Direction', '/assets/images/avant_garde_fashion.jpg', 2, 1),
+('hs-08', 'Akwa Ibom Set', 'Studio Harvs Production', 'Look 08 // Set Design', '/assets/images/editorial_hero.jpg', 2, 2),
+('hs-09', 'Metropolitan Set', 'Commercial Series Lookbook', 'Look 09 // Series', '/assets/images/campaign_lookbook.jpg', 2, 3),
+('hs-10', 'Editorial Duo', 'Coat Architecture', 'Look 10 // Dynamic', '/assets/images/fashion_motion_still.jpg', 2, 4),
+('hs-11', 'Roster Cast', 'Model Development Scouting', 'Look 11 // Scouting', '/assets/images/model_portrait.jpg', 2, 5),
+('hs-12', 'Daylight Cinema', 'BTS Cinematography', 'Look 12 // Cinema', '/assets/images/creative_production_bts.jpg', 2, 6)
 ON CONFLICT (id) DO NOTHING;

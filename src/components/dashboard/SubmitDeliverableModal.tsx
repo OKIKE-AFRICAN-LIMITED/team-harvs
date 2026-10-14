@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { X, Send, Link as LinkIcon, CheckCircle2 } from 'lucide-react';
-import { workspaceStore, ProjectBrief } from '@/lib/workspaceStore';
+import React, { useState, useRef } from 'react';
+import { X, Send, Link as LinkIcon, CheckCircle2, FileUp, Loader2, Check } from 'lucide-react';
+import { workspaceStore, ProjectBrief, DISCIPLINES } from '@/lib/workspaceStore';
+import { uploadLocalFile } from '@/lib/fileUpload';
 
 interface SubmitDeliverableModalProps {
   isOpen: boolean;
@@ -15,12 +16,36 @@ export const SubmitDeliverableModal: React.FC<SubmitDeliverableModalProps> = ({
 }) => {
   const [briefId, setBriefId] = useState(briefs[0]?.id || '');
   const [memberName, setMemberName] = useState('');
-  const [role, setRole] = useState('Stylist');
+  const [role, setRole] = useState<string>(DISCIPLINES[0]);
+  const [submissionType, setSubmissionType] = useState<'link' | 'pdf'>('link');
   const [link, setLink] = useState('');
+  const [pdfUrl, setPdfUrl] = useState<string | undefined>(undefined);
+  const [uploadedPdfName, setUploadedPdfName] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [notes, setNotes] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      const res = await uploadLocalFile(file, 'deliverables');
+      setPdfUrl(res.url);
+      setUploadedPdfName(file.name);
+      if (!link) {
+        setLink(res.url);
+      }
+    } catch (err) {
+      console.error('PDF upload failed:', err);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +55,8 @@ export const SubmitDeliverableModal: React.FC<SubmitDeliverableModalProps> = ({
       briefTitle: targetBrief?.title || 'Production Submission',
       memberName,
       role,
-      link,
+      link: link || pdfUrl || '#',
+      pdfUrl,
       notes,
     });
 
@@ -74,11 +100,15 @@ export const SubmitDeliverableModal: React.FC<SubmitDeliverableModalProps> = ({
                 onChange={(e) => setBriefId(e.target.value)}
                 className="w-full bg-[#2A050A] border border-[#EFCEA5]/20 rounded-lg px-3.5 py-2.5 text-sm text-[#F8F4EF] focus:outline-none focus:border-[#EFCEA5]"
               >
-                {briefs.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.title} ({b.discipline})
-                  </option>
-                ))}
+                {briefs.length === 0 ? (
+                  <option value="general">General / Independent Editorial Submission</option>
+                ) : (
+                  briefs.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.title} ({b.discipline})
+                    </option>
+                  ))
+                )}
               </select>
             </div>
 
@@ -99,35 +129,91 @@ export const SubmitDeliverableModal: React.FC<SubmitDeliverableModalProps> = ({
 
               <div>
                 <label className="block text-xs uppercase tracking-wider text-[#EFCEA5]/80 mb-1.5">
-                  Your Role
+                  Your Discipline
                 </label>
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
                   className="w-full bg-[#2A050A] border border-[#EFCEA5]/20 rounded-lg px-3.5 py-2.5 text-sm text-[#F8F4EF] focus:outline-none focus:border-[#EFCEA5]"
                 >
-                  <option value="Model">Model</option>
-                  <option value="Stylist">Stylist</option>
-                  <option value="MUA">MUA</option>
-                  <option value="Videographer">Videographer / BTS</option>
-                  <option value="Photographer">Photographer</option>
-                  <option value="Assistant">Creative Assistant</option>
+                  {DISCIPLINES.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
                 </select>
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs uppercase tracking-wider text-[#EFCEA5]/80 mb-1.5 flex items-center gap-1">
-                <LinkIcon className="w-3.5 h-3.5" /> Deliverable Link (Google Drive / Vimeo / Dropbox / Figma)
+            {/* Submission Format Switcher */}
+            <div className="pt-1">
+              <label className="block text-xs uppercase tracking-wider text-[#EFCEA5]/80 mb-1.5">
+                Deliverable Format
               </label>
-              <input
-                type="url"
-                required
-                value={link}
-                onChange={(e) => setLink(e.target.value)}
-                placeholder="https://drive.google.com/..."
-                className="w-full bg-[#2A050A] border border-[#EFCEA5]/20 rounded-lg px-3.5 py-2.5 text-sm text-[#F8F4EF] focus:outline-none focus:border-[#EFCEA5]"
-              />
+              <div className="flex items-center p-1 rounded-xl bg-black/40 border border-[#EFCEA5]/15 mb-3 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setSubmissionType('link')}
+                  className={`flex-1 py-2 rounded-lg font-semibold uppercase tracking-wider text-[0.68rem] flex items-center justify-center gap-1.5 transition-colors ${
+                    submissionType === 'link' ? 'bg-[#EFCEA5] text-[#1F0205]' : 'text-[#EFCEA5]/70 hover:text-[#EFCEA5]'
+                  }`}
+                >
+                  <LinkIcon className="w-3.5 h-3.5" /> Cloud Link (Drive/Vimeo)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSubmissionType('pdf')}
+                  className={`flex-1 py-2 rounded-lg font-semibold uppercase tracking-wider text-[0.68rem] flex items-center justify-center gap-1.5 transition-colors ${
+                    submissionType === 'pdf' ? 'bg-[#EFCEA5] text-[#1F0205]' : 'text-[#EFCEA5]/70 hover:text-[#EFCEA5]'
+                  }`}
+                >
+                  <FileUp className="w-3.5 h-3.5" /> PDF Document Upload
+                </button>
+              </div>
+
+              {submissionType === 'pdf' ? (
+                <div>
+                  <input
+                    ref={pdfInputRef}
+                    type="file"
+                    accept="application/pdf"
+                    onChange={handlePdfUpload}
+                    className="hidden"
+                  />
+                  <div
+                    onClick={() => pdfInputRef.current?.click()}
+                    className="p-5 rounded-xl border-2 border-dashed border-[#EFCEA5]/25 hover:border-[#EFCEA5]/60 bg-black/20 hover:bg-black/40 transition-all text-center cursor-pointer group"
+                  >
+                    {isUploading ? (
+                      <div className="flex flex-col items-center justify-center gap-2 py-2">
+                        <Loader2 className="w-6 h-6 text-[#EFCEA5] animate-spin" />
+                        <span className="text-xs text-[#EFCEA5]">Processing PDF upload...</span>
+                      </div>
+                    ) : uploadedPdfName ? (
+                      <div className="flex flex-col items-center justify-center gap-1">
+                        <Check className="w-6 h-6 text-emerald-400" />
+                        <span className="text-xs font-serif text-[#F8F4EF] font-medium">{uploadedPdfName}</span>
+                        <span className="text-[0.65rem] text-[#EFCEA5]/60">PDF attached &bull; Click to change</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-1.5">
+                        <FileUp className="w-7 h-7 text-[#EFCEA5]/50 group-hover:text-[#EFCEA5] transition-colors" />
+                        <span className="text-xs font-serif text-[#F8F4EF]">Choose PDF from your device</span>
+                        <span className="text-[0.65rem] text-[#EFCEA5]/60">Assignment dossier, lookbook tear sheet, or contact sheet</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <input
+                    type="url"
+                    required
+                    value={link}
+                    onChange={(e) => setLink(e.target.value)}
+                    placeholder="https://drive.google.com/... or https://vimeo.com/..."
+                    className="w-full bg-[#2A050A] border border-[#EFCEA5]/20 rounded-lg px-3.5 py-2.5 text-sm text-[#F8F4EF] focus:outline-none focus:border-[#EFCEA5]"
+                  />
+                </div>
+              )}
             </div>
 
             <div>
@@ -153,7 +239,8 @@ export const SubmitDeliverableModal: React.FC<SubmitDeliverableModalProps> = ({
               </button>
               <button
                 type="submit"
-                className="flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-[#EFCEA5] text-[#1F0205] hover:bg-[#F8F4EF] transition-all shadow-lg hover:scale-105"
+                disabled={isUploading}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-[#EFCEA5] text-[#1F0205] hover:bg-[#F8F4EF] transition-all shadow-lg hover:scale-105 disabled:opacity-50"
               >
                 <Send className="w-3.5 h-3.5" /> Submit Work
               </button>

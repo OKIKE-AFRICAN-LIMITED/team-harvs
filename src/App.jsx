@@ -3,6 +3,7 @@ import Lenis from 'lenis';
 import { gsap } from 'gsap';
 import { WorkspacePortal } from '@/components/dashboard/WorkspacePortal';
 import { AuthPage } from '@/components/auth/AuthPage';
+import { SelectedWorksGallery } from '@/components/SelectedWorksGallery';
 import { workspaceStore } from '@/lib/workspaceStore';
 import { authService } from '@/lib/supabase';
 
@@ -86,96 +87,39 @@ export default function App() {
     };
   }, []);
 
-  // 2-Row Dynamic Editorial Gallery Data (Clean, uncluttered layout)
-  const streamRow1 = [
-    {
-      id: '01',
-      title: 'Solitude in Crimson',
-      category: 'Fashion & Editorial Tailoring',
-      image: '/assets/images/editorial_hero.jpg',
-      tag: 'Look 01 // Autumn'
-    },
-    {
-      id: '02',
-      title: 'Double-Breasted Cut',
-      category: 'Avant-Garde Silhouette',
-      image: '/assets/images/avant_garde_fashion.jpg',
-      tag: 'Look 02 // Tailoring'
-    },
-    {
-      id: '03',
-      title: 'Urban Concrete',
-      category: 'Commercial Campaign Lookbook',
-      image: '/assets/images/campaign_lookbook.jpg',
-      tag: 'Look 03 // Commercial'
-    },
-    {
-      id: '04',
-      title: 'Model Development',
-      category: 'Editorial Talent Dossier',
-      image: '/assets/images/model_portrait.jpg',
-      tag: 'Look 04 // Roster'
-    },
-    {
-      id: '05',
-      title: 'Architectural Motion',
-      category: 'High-Fashion Outerwear',
-      image: '/assets/images/fashion_motion_still.jpg',
-      tag: 'Look 05 // Movement'
-    },
-    {
-      id: '06',
-      title: 'Studio Process',
-      category: 'BTS & 35mm Cinema Motion',
-      image: '/assets/images/creative_production_bts.jpg',
-      tag: 'Look 06 // 35mm Motion'
-    }
-  ];
+  // 2-Row Dynamic Editorial Gallery Data synced live from workspaceStore (Hero Stream CMS)
+  const [streamRow1, setStreamRow1] = useState(() => workspaceStore.getHeroStreamRow(1));
+  const [streamRow2, setStreamRow2] = useState(() => workspaceStore.getHeroStreamRow(2));
+  const [portfolioFilter, setPortfolioFilter] = useState('All');
 
-  const streamRow2 = [
-    {
-      id: '07',
-      title: 'Burgundy & Cream',
-      category: 'Color Direction & Form',
-      image: '/assets/images/avant_garde_fashion.jpg',
-      tag: 'Look 07 // Direction'
-    },
-    {
-      id: '08',
-      title: 'Akwa Ibom Set',
-      category: 'Studio Harvs Production',
-      image: '/assets/images/editorial_hero.jpg',
-      tag: 'Look 08 // Set Design'
-    },
-    {
-      id: '09',
-      title: 'Metropolitan Set',
-      category: 'Commercial Series Lookbook',
-      image: '/assets/images/campaign_lookbook.jpg',
-      tag: 'Look 09 // Series'
-    },
-    {
-      id: '10',
-      title: 'Editorial Duo',
-      category: 'Coat Architecture',
-      image: '/assets/images/fashion_motion_still.jpg',
-      tag: 'Look 10 // Dynamic'
-    },
-    {
-      id: '11',
-      title: 'Roster Cast',
-      category: 'Model Development Scouting',
-      image: '/assets/images/model_portrait.jpg',
-      tag: 'Look 11 // Scouting'
-    },
-    {
-      id: '12',
-      title: 'Daylight Cinema',
-      category: 'BTS Cinematography',
-      image: '/assets/images/creative_production_bts.jpg',
-      tag: 'Look 12 // Cinema'
+  useEffect(() => {
+    const updateStreams = () => {
+      setStreamRow1(workspaceStore.getHeroStreamRow(1));
+      setStreamRow2(workspaceStore.getHeroStreamRow(2));
+    };
+    updateStreams();
+    return workspaceStore.subscribe(updateStreams);
+  }, []);
+
+  const mapDisciplineToFilter = (title) => {
+    const t = (title || '').toLowerCase();
+    if (t.includes('model')) return 'Models';
+    if (t.includes('fashion') || t.includes('style')) return 'Stylists';
+    if (t.includes('makeup') || t.includes('mua')) return 'Makeup Artists';
+    if (t.includes('motion') || t.includes('bts') || t.includes('video') || t.includes('35mm')) return 'Videographers / BTS Creators';
+    if (t.includes('assist') || t.includes('collab')) return 'Creative Assistants';
+    if (t.includes('photo') || t.includes('editorial') || t.includes('commercial') || t.includes('campaign')) return 'Photographers';
+    return 'All';
+  };
+
+  const handleDisciplineClick = (title) => {
+    const filter = mapDisciplineToFilter(title);
+    setPortfolioFilter(filter);
+    const target = document.getElementById('portfolio');
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth' });
     }
-  ];
+  };
 
   // GSAP Animation Refs
   const heroRef = useRef(null);
@@ -266,8 +210,15 @@ export default function App() {
     }
   };
 
-  // Initialize Lenis Smooth Scroll
+  // Initialize Lenis Smooth Scroll (Homepage only - deactivated when in workspace to give dashboard 100% native, responsive scrolling)
   useEffect(() => {
+    if (isWorkspaceOpen || isAuthPageOpen) {
+      if (typeof document !== 'undefined') {
+        document.documentElement.classList.remove('lenis', 'lenis-smooth', 'lenis-stopped', 'lenis-scrolling');
+      }
+      return;
+    }
+
     const lenis = new Lenis({
       duration: 1.2,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
@@ -278,11 +229,12 @@ export default function App() {
       touchMultiplier: 1.5,
     });
 
+    let rafId;
     function raf(time) {
       lenis.raf(time);
-      requestAnimationFrame(raf);
+      rafId = requestAnimationFrame(raf);
     }
-    requestAnimationFrame(raf);
+    rafId = requestAnimationFrame(raf);
 
     // Smooth anchor navigation
     const handleAnchorClick = (e) => {
@@ -304,9 +256,13 @@ export default function App() {
 
     return () => {
       document.removeEventListener('click', handleAnchorClick);
+      if (rafId) cancelAnimationFrame(rafId);
       lenis.destroy();
+      if (typeof document !== 'undefined') {
+        document.documentElement.classList.remove('lenis', 'lenis-smooth', 'lenis-stopped', 'lenis-scrolling');
+      }
     };
-  }, []);
+  }, [isWorkspaceOpen, isAuthPageOpen]);
 
   const handleJoinSubmit = (e) => {
     e.preventDefault();
@@ -375,7 +331,7 @@ export default function App() {
           <nav className="nav-links" aria-label="Desktop Navigation">
             <a href="#about" className="nav-item">About</a>
             <a href="#what-we-do" className="nav-item">What We Do</a>
-            <a href="#work" className="nav-item">Lookbook</a>
+            <a href="#portfolio" className="nav-item">Portfolio</a>
             <a href="#collective" className="nav-item">Collective</a>
             <button 
               className="nav-item"
@@ -473,8 +429,8 @@ export default function App() {
           <a href="#what-we-do" className="mobile-nav-link" onClick={() => setIsMobileNavOpen(false)}>
             What We Do <span>02</span>
           </a>
-          <a href="#work" className="mobile-nav-link" onClick={() => setIsMobileNavOpen(false)}>
-            Lookbook <span>03</span>
+          <a href="#portfolio" className="mobile-nav-link" onClick={() => setIsMobileNavOpen(false)}>
+            Portfolio Lookbook <span>03</span>
           </a>
           <a href="#collective" className="mobile-nav-link" onClick={() => setIsMobileNavOpen(false)}>
             Collective <span>04</span>
@@ -690,8 +646,15 @@ export default function App() {
             <span className="label-sand">02 / What We Do</span>
             <ul className="disciplines-table">
               {disciplines.map((item) => (
-                <li key={item.num} className="discipline-item">
-                  <span className="discipline-item-title">{item.title}</span>
+                <li 
+                  key={item.num} 
+                  className="discipline-item cursor-pointer hover:bg-white/5 transition-all group"
+                  onClick={() => handleDisciplineClick(item.title)}
+                  title={`Click to view ${item.title} portfolio looks`}
+                >
+                  <span className="discipline-item-title group-hover:translate-x-2 transition-transform inline-flex items-center gap-2">
+                    {item.title} <span className="opacity-0 group-hover:opacity-100 text-[var(--sand)] text-xs transition-opacity">&rarr; View Works</span>
+                  </span>
                   <span className="discipline-item-number">{item.num}</span>
                 </li>
               ))}
@@ -699,20 +662,32 @@ export default function App() {
           </div>
         </section>
 
+        {/* SECTION: SELECTED WORKS / PORTFOLIO ARCHIVE (Filtered dynamically by discipline) */}
+        <SelectedWorksGallery
+          activeFilter={portfolioFilter}
+          onSelectFilter={(f) => setPortfolioFilter(f)}
+          onOpenJoin={() => setIsJoinOpen(true)}
+          onSelectPreview={(item) => setSelectedPreviewImage(item)}
+        />
+
         {/* SECTION: THE COLLECTIVE — Burgundy & Sand */}
         <section className="section-collective" id="collective">
           <div className="container">
-            <span className="label-sand">03 / The Collective</span>
+            <span className="label-sand">04 / The Collective</span>
             <h2 className="statement-burgundy" style={{ color: 'var(--cream)' }}>
               Young and emerging creatives ready to step outside their comfort zones.
             </h2>
             <div className="collective-pills">
-              <span className="collective-pill-item">Models</span>
-              <span className="collective-pill-item">Stylists</span>
-              <span className="collective-pill-item">Makeup Artists</span>
-              <span className="collective-pill-item">Videographers / BTS Creators</span>
-              <span className="collective-pill-item">Creative Assistants</span>
-              <span className="collective-pill-item">Creative Collaborators</span>
+              {['Models', 'Stylists', 'Makeup Artists', 'Videographers / BTS Creators', 'Creative Assistants', 'Photographers'].map((pill) => (
+                <button
+                  key={pill}
+                  onClick={() => handleDisciplineClick(pill)}
+                  className="collective-pill-item cursor-pointer hover:bg-[var(--sand)] hover:text-[#1F0205] transition-all"
+                  title={`View ${pill} portfolio works`}
+                >
+                  {pill} &rarr;
+                </button>
+              ))}
             </div>
 
             {/* Workspace Banner */}

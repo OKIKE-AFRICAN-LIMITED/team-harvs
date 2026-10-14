@@ -20,6 +20,7 @@ import {
 import type { Profile } from '@/lib/supabase';
 
 interface SidebarCounts {
+  users?: number;
   lookbook?: number;
   roster?: number;
   pendingRoster?: number;
@@ -86,6 +87,18 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
           id: 'overview',
           label: 'Studio Overview',
           icon: LayoutDashboard,
+          count: undefined,
+        },
+        {
+          id: 'users',
+          label: 'User Management',
+          icon: Shield,
+          count: counts.users,
+        },
+        {
+          id: 'hero',
+          label: 'Hero Stream CMS',
+          icon: Layers,
           count: undefined,
         },
         {

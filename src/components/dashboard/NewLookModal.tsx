@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { X, Sparkles, Image as ImageIcon } from 'lucide-react';
-import { workspaceStore, LookbookWork } from '@/lib/workspaceStore';
+import React, { useState, useRef } from 'react';
+import { X, Sparkles, Image as ImageIcon, UploadCloud, Check, Loader2, Link2 } from 'lucide-react';
+import { workspaceStore, LookbookWork, DISCIPLINES } from '@/lib/workspaceStore';
+import { uploadLocalFile } from '@/lib/fileUpload';
 
 interface NewLookModalProps {
   isOpen: boolean;
@@ -14,7 +15,7 @@ export const NewLookModal: React.FC<NewLookModalProps> = ({ isOpen, onClose, edi
     category: editWork?.category || 'Fashion & Tailoring',
     tag: editWork?.tag || 'Look // Autumn',
     image: editWork?.image || 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=80',
-    discipline: editWork?.discipline || 'Fashion',
+    discipline: editWork?.discipline || 'Models',
     featured: editWork?.featured ?? true,
     photographer: editWork?.photographer || 'Studio Harvs Camera',
     stylist: editWork?.stylist || 'Aniekeme Bassey',
@@ -22,7 +23,28 @@ export const NewLookModal: React.FC<NewLookModalProps> = ({ isOpen, onClose, edi
     description: editWork?.description || '',
   });
 
+  const [imageSourceMode, setImageSourceMode] = useState<'upload' | 'url'>('upload');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadSuccessName, setUploadSuccessName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   if (!isOpen) return null;
+
+  const handleDeviceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      const res = await uploadLocalFile(file, 'lookbook');
+      setFormData((prev) => ({ ...prev, image: res.url }));
+      setUploadSuccessName(file.name);
+    } catch (err) {
+      console.error('Look image upload failed:', err);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,11 +112,9 @@ export const NewLookModal: React.FC<NewLookModalProps> = ({ isOpen, onClose, edi
                 onChange={(e) => setFormData({ ...formData, discipline: e.target.value })}
                 className="w-full bg-[#2A050A] border border-[#EFCEA5]/20 rounded-lg px-3.5 py-2.5 text-sm text-[#F8F4EF] focus:outline-none focus:border-[#EFCEA5]"
               >
-                <option value="Fashion">Fashion & Tailoring</option>
-                <option value="Editorial">Editorial Direction</option>
-                <option value="Commercial">Commercial Campaign</option>
-                <option value="Model Development">Model Development</option>
-                <option value="BTS & Motion">BTS & 35mm Motion</option>
+                {DISCIPLINES.map((disc) => (
+                  <option key={disc} value={disc}>{disc}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -129,38 +149,110 @@ export const NewLookModal: React.FC<NewLookModalProps> = ({ isOpen, onClose, edi
             </div>
           </div>
 
-          {/* Image URL & Presets */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
+          {/* Dual Image Input: Local Device Upload or Direct URL */}
+          <div className="pt-1">
+            <div className="flex items-center justify-between mb-2">
               <label className="block text-xs uppercase tracking-wider text-[#EFCEA5]/80">
-                Image URL or Local Asset
+                Editorial Imagery
               </label>
-              <span className="text-[0.7rem] text-[#EFCEA5]/60 flex items-center gap-1">
-                <ImageIcon className="w-3 h-3" /> CDN or local path
-              </span>
-            </div>
-            <input
-              type="text"
-              required
-              value={formData.image}
-              onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-              placeholder="https://... or /assets/images/..."
-              className="w-full bg-[#2A050A] border border-[#EFCEA5]/20 rounded-lg px-3.5 py-2.5 text-sm text-[#F8F4EF] focus:outline-none focus:border-[#EFCEA5]"
-            />
-            {/* Quick Preset Buttons */}
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              <span className="text-[0.68rem] text-[#EFCEA5]/70 py-1 mr-1">Presets:</span>
-              {sampleImages.map((s) => (
+              <div className="flex items-center gap-1 p-0.5 rounded-lg bg-black/40 border border-[#EFCEA5]/15 text-[0.68rem]">
                 <button
                   type="button"
-                  key={s.label}
-                  onClick={() => setFormData({ ...formData, image: s.url })}
-                  className="text-[0.65rem] px-2 py-0.5 rounded bg-white/5 hover:bg-[#EFCEA5]/20 text-[#EFCEA5]/90 border border-[#EFCEA5]/20 transition-colors"
+                  onClick={() => setImageSourceMode('upload')}
+                  className={`px-2.5 py-1 rounded-md transition-colors flex items-center gap-1 ${
+                    imageSourceMode === 'upload' ? 'bg-[#EFCEA5] text-[#1F0205] font-semibold' : 'text-[#EFCEA5]/70 hover:text-[#EFCEA5]'
+                  }`}
                 >
-                  {s.label}
+                  <UploadCloud className="w-3 h-3" /> Upload from Device
                 </button>
-              ))}
+                <button
+                  type="button"
+                  onClick={() => setImageSourceMode('url')}
+                  className={`px-2.5 py-1 rounded-md transition-colors flex items-center gap-1 ${
+                    imageSourceMode === 'url' ? 'bg-[#EFCEA5] text-[#1F0205] font-semibold' : 'text-[#EFCEA5]/70 hover:text-[#EFCEA5]'
+                  }`}
+                >
+                  <Link2 className="w-3 h-3" /> External URL
+                </button>
+              </div>
             </div>
+
+            {imageSourceMode === 'upload' ? (
+              <div className="space-y-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleDeviceUpload}
+                  className="hidden"
+                />
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-6 rounded-xl border-2 border-dashed border-[#EFCEA5]/25 hover:border-[#EFCEA5]/60 bg-black/20 hover:bg-black/40 transition-all text-center cursor-pointer group"
+                >
+                  {isUploading ? (
+                    <div className="flex flex-col items-center justify-center gap-2 py-3">
+                      <Loader2 className="w-6 h-6 text-[#EFCEA5] animate-spin" />
+                      <span className="text-xs text-[#EFCEA5]">Uploading editorial image...</span>
+                    </div>
+                  ) : uploadSuccessName ? (
+                    <div className="flex flex-col items-center justify-center gap-1.5 py-1">
+                      <Check className="w-6 h-6 text-emerald-400" />
+                      <span className="text-xs font-serif text-[#F8F4EF]">{uploadSuccessName}</span>
+                      <span className="text-[0.65rem] text-[#EFCEA5]/60">Click to change file</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <UploadCloud className="w-8 h-8 text-[#EFCEA5]/50 group-hover:text-[#EFCEA5] transition-colors" />
+                      <div>
+                        <span className="text-xs font-serif text-[#F8F4EF] block font-medium">
+                          Choose an image from your device
+                        </span>
+                        <span className="text-[0.68rem] text-[#EFCEA5]/60 block mt-0.5">
+                          PNG, JPG, WEBP high-resolution editorial portrait or landscape
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Preview Thumbnail */}
+                {formData.image && (
+                  <div className="flex items-center gap-3 p-2 rounded-xl bg-black/30 border border-[#EFCEA5]/15">
+                    <img src={formData.image} alt="Preview" className="w-14 h-14 rounded-lg object-cover bg-black" />
+                    <div className="overflow-hidden">
+                      <span className="text-[0.68rem] text-emerald-400 font-semibold uppercase block">Image Loaded</span>
+                      <span className="text-xs text-[#EFCEA5]/70 truncate block">{formData.image.slice(0, 50)}...</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  required
+                  value={formData.image}
+                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                  placeholder="https://... or /assets/images/..."
+                  className="w-full bg-[#2A050A] border border-[#EFCEA5]/20 rounded-lg px-3.5 py-2.5 text-sm text-[#F8F4EF] focus:outline-none focus:border-[#EFCEA5]"
+                />
+                {/* Quick Preset Buttons */}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  <span className="text-[0.68rem] text-[#EFCEA5]/70 py-1 mr-1">Presets:</span>
+                  {sampleImages.map((s) => (
+                    <button
+                      type="button"
+                      key={s.label}
+                      onClick={() => setFormData({ ...formData, image: s.url })}
+                      className="text-[0.65rem] px-2 py-0.5 rounded bg-white/5 hover:bg-[#EFCEA5]/20 text-[#EFCEA5]/90 border border-[#EFCEA5]/20 transition-colors"
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Credits */}

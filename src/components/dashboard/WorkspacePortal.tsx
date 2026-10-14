@@ -15,7 +15,8 @@ import {
   LookbookWork, 
   ProjectBrief, 
   CreativeAsset, 
-  MemberSubmission 
+  MemberSubmission,
+  HeroStreamItem,
 } from '@/lib/workspaceStore';
 import { isSupabaseConfigured, authService, type Profile } from '@/lib/supabase';
 import { AuthPage } from '../auth/AuthPage';
@@ -50,6 +51,8 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
   const [briefs, setBriefs] = useState<ProjectBrief[]>([]);
   const [assets, setAssets] = useState<CreativeAsset[]>([]);
   const [submissions, setSubmissions] = useState<MemberSubmission[]>([]);
+  const [users, setUsers] = useState<Profile[]>([]);
+  const [heroStream, setHeroStream] = useState<HeroStreamItem[]>([]);
 
   // Modals state
   const [isNewLookOpen, setIsNewLookOpen] = useState(false);
@@ -73,6 +76,8 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
       setBriefs(workspaceStore.getBriefs());
       setAssets(workspaceStore.getAssets());
       setSubmissions(workspaceStore.getSubmissions());
+      setUsers(workspaceStore.getUsers());
+      setHeroStream(workspaceStore.getHeroStream());
     };
 
     syncData();
@@ -169,6 +174,7 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
   const activeBriefs = briefs.filter((b) => b.status === 'In Production' || b.status === 'Planning');
 
   const sidebarCounts = {
+    users: users.length,
     lookbook: lookbook.length,
     roster: applications.length,
     pendingRoster: pendingApps.length,
@@ -182,6 +188,8 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
     if (currentRole === 'admin') {
       switch (tab) {
         case 'overview': return 'Studio Overview';
+        case 'users': return 'User Management';
+        case 'hero': return 'Hero Stream CMS';
         case 'lookbook': return 'Lookbook CMS Archive';
         case 'roster': return 'Talent Roster & CRM';
         case 'briefs': return 'Production Briefs';
@@ -282,6 +290,8 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
           ) : role === 'admin' ? (
             /* ADMIN DASHBOARD for Studio Directors */
             <AdminDashboard
+              users={users}
+              heroStream={heroStream}
               applications={applications}
               lookbook={lookbook}
               briefs={briefs}
