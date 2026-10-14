@@ -3,16 +3,22 @@ import { X, Send, Link as LinkIcon, CheckCircle2, FileUp, Loader2, Check } from 
 import { workspaceStore, ProjectBrief, DISCIPLINES } from '@/lib/workspaceStore';
 import { uploadLocalFile } from '@/lib/fileUpload';
 
+import { Profile } from '@/lib/supabase';
+
 interface SubmitDeliverableModalProps {
   isOpen: boolean;
   onClose: () => void;
   briefs: ProjectBrief[];
+  currentUser?: any;
+  currentProfile?: Profile | null;
 }
 
 export const SubmitDeliverableModal: React.FC<SubmitDeliverableModalProps> = ({
   isOpen,
   onClose,
   briefs,
+  currentUser,
+  currentProfile,
 }) => {
   const [briefId, setBriefId] = useState(briefs[0]?.id || '');
   const [memberName, setMemberName] = useState('');
@@ -25,6 +31,20 @@ export const SubmitDeliverableModal: React.FC<SubmitDeliverableModalProps> = ({
   const [notes, setNotes] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (briefs.length > 0 && !briefId) {
+      setBriefId(briefs[0].id);
+    }
+    if (currentProfile?.full_name) {
+      setMemberName(currentProfile.full_name);
+    } else if (currentUser?.email && !memberName) {
+      setMemberName(currentUser.email.split('@')[0]);
+    }
+    if (currentProfile?.discipline) {
+      setRole(currentProfile.discipline);
+    }
+  }, [currentProfile, currentUser, isOpen, briefs]);
 
   if (!isOpen) return null;
 
@@ -50,15 +70,17 @@ export const SubmitDeliverableModal: React.FC<SubmitDeliverableModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const targetBrief = briefs.find((b) => b.id === briefId) || briefs[0];
+    const finalLink = submissionType === 'pdf' ? (pdfUrl || link || '') : (link || pdfUrl || '');
+    
     workspaceStore.addSubmission({
       briefId: targetBrief?.id || 'brief-gen',
       briefTitle: targetBrief?.title || 'Production Submission',
-      memberName,
+      memberName: memberName.trim() || currentProfile?.full_name || 'Creative Member',
       role,
-      link: link || pdfUrl || '#',
-      pdfUrl,
+      link: finalLink || '#',
+      pdfUrl: pdfUrl || (submissionType === 'pdf' ? finalLink : undefined),
       notes,
-    });
+    }, currentUser?.id);
 
     setIsSuccess(true);
     setTimeout(() => {

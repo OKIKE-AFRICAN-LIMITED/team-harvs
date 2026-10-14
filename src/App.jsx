@@ -4,7 +4,7 @@ import { gsap } from 'gsap';
 import { WorkspacePortal } from '@/components/dashboard/WorkspacePortal';
 import { AuthPage } from '@/components/auth/AuthPage';
 import { SelectedWorksGallery } from '@/components/SelectedWorksGallery';
-import { workspaceStore } from '@/lib/workspaceStore';
+import { workspaceStore, isVideoMedia } from '@/lib/workspaceStore';
 import { authService } from '@/lib/supabase';
 
 export default function App() {
@@ -90,16 +90,18 @@ export default function App() {
   // 2-Row Dynamic Editorial Gallery Data synced live from workspaceStore (Hero Stream CMS)
   const [streamRow1, setStreamRow1] = useState(() => workspaceStore.getHeroStreamRow(1));
   const [streamRow2, setStreamRow2] = useState(() => workspaceStore.getHeroStreamRow(2));
+  const [lookbookWorks, setLookbookWorks] = useState(() => workspaceStore.getLookbook());
   const [portfolioFilter, setPortfolioFilter] = useState('All');
 
   useEffect(() => {
     const updateStreams = () => {
       setStreamRow1(workspaceStore.getHeroStreamRow(1));
       setStreamRow2(workspaceStore.getHeroStreamRow(2));
+      setLookbookWorks(workspaceStore.getLookbook());
     };
     updateStreams();
     return workspaceStore.subscribe(updateStreams);
-  }, []);
+  }, [isWorkspaceOpen]);
 
   const mapDisciplineToFilter = (title) => {
     const t = (title || '').toLowerCase();
@@ -664,6 +666,7 @@ export default function App() {
 
         {/* SECTION: SELECTED WORKS / PORTFOLIO ARCHIVE (Filtered dynamically by discipline) */}
         <SelectedWorksGallery
+          items={lookbookWorks}
           activeFilter={portfolioFilter}
           onSelectFilter={(f) => setPortfolioFilter(f)}
           onOpenJoin={() => setIsJoinOpen(true)}
@@ -828,10 +831,21 @@ export default function App() {
           <div className="modal-box-preview" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close-rich" onClick={() => setSelectedPreviewImage(null)} aria-label="Close preview">&times;</button>
             <div className="preview-modal-frame">
-              <img src={selectedPreviewImage.image} alt={selectedPreviewImage.title} />
+              {isVideoMedia(selectedPreviewImage.videoUrl || selectedPreviewImage.image, selectedPreviewImage.mediaType) ? (
+                <video
+                  src={selectedPreviewImage.videoUrl || selectedPreviewImage.image}
+                  controls
+                  autoPlay
+                  playsInline
+                  loop
+                  style={{ width: '100%', maxHeight: '72vh', borderRadius: '12px', background: '#000', objectFit: 'contain' }}
+                />
+              ) : (
+                <img src={selectedPreviewImage.image} alt={selectedPreviewImage.title} />
+              )}
             </div>
             <div className="preview-modal-info">
-              <span className="label-burgundy">{selectedPreviewImage.tag}</span>
+              <span className="label-burgundy">{selectedPreviewImage.discipline || 'EDITORIAL ARCHIVE'}</span>
               <h3>{selectedPreviewImage.title}</h3>
               <p>{selectedPreviewImage.category} · Team Harvs Creative Production</p>
               <div style={{ marginTop: '1.2rem', display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>

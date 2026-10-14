@@ -29,6 +29,8 @@ export interface LookbookWork {
   category: string;
   tag: string;
   image: string;
+  videoUrl?: string;
+  mediaType?: 'image' | 'video';
   discipline: DisciplineType | string;
   featured: boolean;
   photographer?: string;
@@ -36,6 +38,20 @@ export interface LookbookWork {
   model?: string;
   date: string;
   description?: string;
+}
+
+export function isVideoMedia(url?: string, mediaType?: string): boolean {
+  if (mediaType === 'video') return true;
+  if (!url) return false;
+  if (url.startsWith('data:video')) return true;
+  const clean = url.split('?')[0].toLowerCase();
+  return (
+    clean.endsWith('.mp4') ||
+    clean.endsWith('.webm') ||
+    clean.endsWith('.mov') ||
+    clean.endsWith('.m4v') ||
+    clean.endsWith('.ogg')
+  );
 }
 
 export interface ProjectBrief {
@@ -112,41 +128,41 @@ const STORAGE_KEYS = {
 
 // Default curated 2-row hero stream items
 export const DEFAULT_HERO_STREAM: HeroStreamItem[] = [
-  { id: 'hs-01', title: 'Solitude in Crimson', category: 'Fashion & Editorial Tailoring', tag: 'Look 01 // Autumn', image: '/assets/images/editorial_hero.jpg', rowNumber: 1, orderIndex: 1 },
-  { id: 'hs-02', title: 'Double-Breasted Cut', category: 'Avant-Garde Silhouette', tag: 'Look 02 // Tailoring', image: '/assets/images/avant_garde_fashion.jpg', rowNumber: 1, orderIndex: 2 },
-  { id: 'hs-03', title: 'Urban Concrete', category: 'Commercial Campaign Lookbook', tag: 'Look 03 // Commercial', image: '/assets/images/campaign_lookbook.jpg', rowNumber: 1, orderIndex: 3 },
-  { id: 'hs-04', title: 'Model Development', category: 'Editorial Talent Dossier', tag: 'Look 04 // Roster', image: '/assets/images/model_portrait.jpg', rowNumber: 1, orderIndex: 4 },
-  { id: 'hs-05', title: 'Architectural Motion', category: 'High-Fashion Outerwear', tag: 'Look 05 // Movement', image: '/assets/images/fashion_motion_still.jpg', rowNumber: 1, orderIndex: 5 },
-  { id: 'hs-06', title: 'Studio Process', category: 'BTS & 35mm Cinema Motion', tag: 'Look 06 // 35mm Motion', image: '/assets/images/creative_production_bts.jpg', rowNumber: 1, orderIndex: 6 },
-  { id: 'hs-07', title: 'Burgundy & Cream', category: 'Color Direction & Form', tag: 'Look 07 // Direction', image: '/assets/images/avant_garde_fashion.jpg', rowNumber: 2, orderIndex: 1 },
-  { id: 'hs-08', title: 'Akwa Ibom Set', category: 'Studio Harvs Production', tag: 'Look 08 // Set Design', image: '/assets/images/editorial_hero.jpg', rowNumber: 2, orderIndex: 2 },
-  { id: 'hs-09', title: 'Metropolitan Set', category: 'Commercial Series Lookbook', tag: 'Look 09 // Series', image: '/assets/images/campaign_lookbook.jpg', rowNumber: 2, orderIndex: 3 },
-  { id: 'hs-10', title: 'Editorial Duo', category: 'Coat Architecture', tag: 'Look 10 // Dynamic', image: '/assets/images/fashion_motion_still.jpg', rowNumber: 2, orderIndex: 4 },
-  { id: 'hs-11', title: 'Roster Cast', category: 'Model Development Scouting', tag: 'Look 11 // Scouting', image: '/assets/images/model_portrait.jpg', rowNumber: 2, orderIndex: 5 },
-  { id: 'hs-12', title: 'Daylight Cinema', category: 'BTS Cinematography', tag: 'Look 12 // Cinema', image: '/assets/images/creative_production_bts.jpg', rowNumber: 2, orderIndex: 6 },
+  { id: 'hs-01', title: 'Solitude in Crimson', category: 'Fashion & Editorial Tailoring', tag: '', image: '/assets/images/editorial_hero.jpg', rowNumber: 1, orderIndex: 1 },
+  { id: 'hs-02', title: 'Double-Breasted Cut', category: 'Avant-Garde Silhouette', tag: '', image: '/assets/images/avant_garde_fashion.jpg', rowNumber: 1, orderIndex: 2 },
+  { id: 'hs-03', title: 'Urban Concrete', category: 'Commercial Campaign Lookbook', tag: '', image: '/assets/images/campaign_lookbook.jpg', rowNumber: 1, orderIndex: 3 },
+  { id: 'hs-04', title: 'Model Development', category: 'Editorial Talent Dossier', tag: '', image: '/assets/images/model_portrait.jpg', rowNumber: 1, orderIndex: 4 },
+  { id: 'hs-05', title: 'Architectural Motion', category: 'High-Fashion Outerwear', tag: '', image: '/assets/images/fashion_motion_still.jpg', rowNumber: 1, orderIndex: 5 },
+  { id: 'hs-06', title: 'Studio Process', category: 'BTS & 35mm Cinema Motion', tag: '', image: '/assets/images/creative_production_bts.jpg', rowNumber: 1, orderIndex: 6 },
+  { id: 'hs-07', title: 'Burgundy & Cream', category: 'Color Direction & Form', tag: '', image: '/assets/images/avant_garde_fashion.jpg', rowNumber: 2, orderIndex: 1 },
+  { id: 'hs-08', title: 'Akwa Ibom Set', category: 'Studio Harvs Production', tag: '', image: '/assets/images/editorial_hero.jpg', rowNumber: 2, orderIndex: 2 },
+  { id: 'hs-09', title: 'Metropolitan Set', category: 'Commercial Series Lookbook', tag: '', image: '/assets/images/campaign_lookbook.jpg', rowNumber: 2, orderIndex: 3 },
+  { id: 'hs-10', title: 'Editorial Duo', category: 'Coat Architecture', tag: '', image: '/assets/images/fashion_motion_still.jpg', rowNumber: 2, orderIndex: 4 },
+  { id: 'hs-11', title: 'Roster Cast', category: 'Model Development Scouting', tag: '', image: '/assets/images/model_portrait.jpg', rowNumber: 2, orderIndex: 5 },
+  { id: 'hs-12', title: 'Daylight Cinema', category: 'BTS Cinematography', tag: '', image: '/assets/images/creative_production_bts.jpg', rowNumber: 2, orderIndex: 6 },
 ];
 
-// Default initial curated works for Selected Works archive
+// Default initial curated works for Selected Works archive (tags cleared)
 export const DEFAULT_LOOKBOOK: LookbookWork[] = [
   {
     id: 'sw-01',
-    title: 'Solitude in Crimson',
+    title: 'test to see if it works',
     category: 'Fashion & Tailoring',
     discipline: 'Stylists',
-    tag: 'Look 01 // Autumn',
+    tag: '',
     image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=80',
     date: 'Autumn 2026',
     featured: true,
     photographer: 'Studio Harvs Camera',
     stylist: 'Aniekeme Bassey',
-    description: 'Experimental crimson silhouette exploring structured avant-garde tailoring and intentional motion.'
+    description: 'Experimental silhouette exploring structured avant-garde tailoring and intentional motion.'
   },
   {
     id: 'sw-02',
     title: 'Double-Breasted Cut',
     category: 'Avant-Garde Silhouette',
     discipline: 'Stylists',
-    tag: 'Look 02 // Tailoring',
+    tag: '',
     image: '/assets/images/avant_garde_fashion.jpg',
     date: 'Autumn 2026',
     featured: true,
@@ -159,7 +175,7 @@ export const DEFAULT_LOOKBOOK: LookbookWork[] = [
     title: 'Architectural Trench',
     category: 'High-Fashion Outerwear',
     discipline: 'Stylists',
-    tag: 'Look 03 // Structure',
+    tag: '',
     image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1200&q=80',
     date: 'Autumn 2026',
     featured: true,
@@ -172,7 +188,7 @@ export const DEFAULT_LOOKBOOK: LookbookWork[] = [
     title: 'Editorial Hero Look',
     category: 'Team Harvs Autumn Series',
     discipline: 'Photographers',
-    tag: 'Look 04 // Direction',
+    tag: '',
     image: '/assets/images/editorial_hero.jpg',
     date: 'Autumn 2026',
     featured: true,
@@ -185,7 +201,7 @@ export const DEFAULT_LOOKBOOK: LookbookWork[] = [
     title: 'Commercial Campaign Lookbook',
     category: 'Commercial Campaign Issue 01',
     discipline: 'Photographers',
-    tag: 'Look 05 // Campaign',
+    tag: '',
     image: '/assets/images/campaign_lookbook.jpg',
     date: 'Autumn 2026',
     featured: true,
@@ -198,8 +214,10 @@ export const DEFAULT_LOOKBOOK: LookbookWork[] = [
     title: 'Metropolitan Motion',
     category: 'Outdoor Dynamic Direction',
     discipline: 'Videographers / BTS Creators',
-    tag: 'Look 06 // Dynamics',
+    tag: '',
     image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=1200&q=80',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    mediaType: 'video',
     date: 'Autumn 2026',
     featured: false,
     photographer: 'Motion Studio',
@@ -211,7 +229,7 @@ export const DEFAULT_LOOKBOOK: LookbookWork[] = [
     title: 'Model Development Dossier',
     category: 'Talent Dossier Scouting',
     discipline: 'Models',
-    tag: 'Look 07 // Cast',
+    tag: '',
     image: '/assets/images/model_portrait.jpg',
     date: 'Autumn 2026',
     featured: false,
@@ -224,8 +242,10 @@ export const DEFAULT_LOOKBOOK: LookbookWork[] = [
     title: '35mm Film Studio Set',
     category: 'BTS & Production Cinematography',
     discipline: 'Videographers / BTS Creators',
-    tag: 'Look 08 // On Set',
+    tag: '',
     image: '/assets/images/creative_production_bts.jpg',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+    mediaType: 'video',
     date: 'Autumn 2026',
     featured: false,
     photographer: 'BTS Cinema Unit',
@@ -237,7 +257,7 @@ export const DEFAULT_LOOKBOOK: LookbookWork[] = [
     title: 'Monochromatic Form',
     category: 'Studio Architecture',
     discipline: 'Photographers',
-    tag: 'Look 09 // Minimal',
+    tag: '',
     image: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1200&q=80',
     date: 'Autumn 2026',
     featured: false,
@@ -250,8 +270,10 @@ export const DEFAULT_LOOKBOOK: LookbookWork[] = [
     title: 'Fashion Motion Still',
     category: 'Movement Study',
     discipline: 'Videographers / BTS Creators',
-    tag: 'Look 10 // Cinema Motion',
+    tag: '',
     image: '/assets/images/fashion_motion_still.jpg',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
+    mediaType: 'video',
     date: 'Autumn 2026',
     featured: false,
     photographer: 'Motion Studio',
@@ -263,7 +285,7 @@ export const DEFAULT_LOOKBOOK: LookbookWork[] = [
     title: 'Pure Expression',
     category: 'Editorial Lighting',
     discipline: 'Makeup Artists',
-    tag: 'Look 11 // Expression',
+    tag: '',
     image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1200&q=80',
     date: 'Autumn 2026',
     featured: false,
@@ -276,7 +298,7 @@ export const DEFAULT_LOOKBOOK: LookbookWork[] = [
     title: 'Concrete Monolith',
     category: 'Urban Set Direction',
     discipline: 'Creative Assistants',
-    tag: 'Look 12 // Spatial',
+    tag: '',
     image: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1200&q=80',
     date: 'Autumn 2026',
     featured: false,
@@ -333,6 +355,13 @@ class WorkspaceStore {
         localStorage.setItem(STORAGE_KEYS.LOOKBOOK, JSON.stringify(this.lookbook));
         changed = true;
       }
+
+      // If Supabase lookbook table is empty, auto-seed with current lookbook items so they exist in database
+      if (lb !== null && lb.length === 0 && this.lookbook.length > 0) {
+        this.lookbook.forEach((item) => {
+          supabaseService.upsertLookbookWork(item).catch(() => {});
+        });
+      }
       if (briefs !== null) {
         this.briefs = briefs;
         localStorage.setItem(STORAGE_KEYS.BRIEFS, JSON.stringify(this.briefs));
@@ -344,7 +373,9 @@ class WorkspaceStore {
         changed = true;
       }
       if (sub !== null) {
-        this.submissions = sub;
+        const remoteIds = new Set(sub.map((s) => s.id));
+        const unsynced = this.submissions.filter((s) => !remoteIds.has(s.id));
+        this.submissions = [...sub, ...unsynced];
         localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(this.submissions));
         changed = true;
       }
@@ -606,6 +637,9 @@ class WorkspaceStore {
   }
 
   public updateLookbookWork(id: string, updates: Partial<LookbookWork>) {
+    const existing = this.lookbook.find((item) => item.id === id);
+    const merged = existing ? { ...existing, ...updates, id } : ({ id, ...updates } as LookbookWork);
+
     this.lookbook = this.lookbook.map((item) =>
       item.id === id ? { ...item, ...updates } : item
     );
@@ -613,8 +647,8 @@ class WorkspaceStore {
     this.notify();
 
     if (isSupabaseConfigured) {
-      supabaseService.updateLookbookWork(id, updates).catch((e) =>
-        console.warn('Supabase updateLookbookWork failed:', e)
+      supabaseService.upsertLookbookWork(merged).catch((e) =>
+        console.warn('Supabase upsertLookbookWork failed:', e)
       );
     }
   }

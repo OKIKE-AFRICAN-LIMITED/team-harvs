@@ -99,6 +99,8 @@ CREATE TABLE IF NOT EXISTS public.lookbook_works (
     category TEXT NOT NULL,
     tag TEXT,
     image TEXT NOT NULL,
+    video_url TEXT,
+    media_type TEXT DEFAULT 'image',
     discipline TEXT DEFAULT 'Models',
     featured BOOLEAN DEFAULT false,
     photographer TEXT,
@@ -108,6 +110,10 @@ CREATE TABLE IF NOT EXISTS public.lookbook_works (
     description TEXT,
     created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- In case table already existed, ensure new columns are added safely
+ALTER TABLE public.lookbook_works ADD COLUMN IF NOT EXISTS video_url TEXT;
+ALTER TABLE public.lookbook_works ADD COLUMN IF NOT EXISTS media_type TEXT DEFAULT 'image';
 
 -- ==========================================================
 -- 5. PROJECT BRIEFS TABLE (Production Schedules & Call Sheets)
@@ -265,20 +271,21 @@ ON public.creative_assets FOR ALL
 USING (public.is_admin() OR auth.role() = 'authenticated');
 
 -- --- MEMBER SUBMISSIONS POLICIES ---
+DROP POLICY IF EXISTS "Allow read submissions" ON public.member_submissions;
 DROP POLICY IF EXISTS "Allow members and admins read submissions" ON public.member_submissions;
-CREATE POLICY "Allow members and admins read submissions"
+CREATE POLICY "Allow read submissions"
 ON public.member_submissions FOR SELECT
-USING (auth.uid() = member_id OR public.is_admin() OR auth.role() = 'authenticated');
+USING (true);
 
 DROP POLICY IF EXISTS "Allow insert submissions" ON public.member_submissions;
 CREATE POLICY "Allow insert submissions"
 ON public.member_submissions FOR INSERT
-WITH CHECK (auth.role() = 'authenticated');
+WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow update submissions" ON public.member_submissions;
 CREATE POLICY "Allow update submissions"
 ON public.member_submissions FOR UPDATE
-USING (auth.uid() = member_id OR public.is_admin() OR auth.role() = 'authenticated');
+USING (true);
 
 -- ==========================================================
 -- SEED DATA FOR HERO STREAM (2 Rows, Initial Looks)

@@ -35,7 +35,8 @@ import {
   Mail,
   Phone,
   Save,
-  Edit3
+  Edit3,
+  Video
 } from 'lucide-react';
 import { 
   Application, 
@@ -46,7 +47,8 @@ import {
   HeroStreamItem,
   BriefInteraction,
   DISCIPLINES,
-  workspaceStore 
+  workspaceStore,
+  isVideoMedia
 } from '@/lib/workspaceStore';
 import type { Profile } from '@/lib/supabase';
 import { uploadLocalFile } from '@/lib/fileUpload';
@@ -109,9 +111,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // PRODUCTION BRIEF ENGAGEMENT AUDIT STATE
   const [expandedBriefAuditId, setExpandedBriefAuditId] = useState<string | null>(null);
 
+  // DELIVERABLES QA REVIEW STATE
+  const [submissionSearch, setSubmissionSearch] = useState('');
+  const [submissionStatusFilter, setSubmissionStatusFilter] = useState<'all' | 'Submitted' | 'Approved' | 'Revision Requested'>('all');
+
   const pendingApps = applications.filter((a) => a.status === 'Pending');
   const rosterMembers = applications.filter((a) => a.status === 'On Roster');
   const activeBriefs = briefs.filter((b) => b.status === 'In Production' || b.status === 'Planning');
+
+  // Filtered Submissions List
+  const filteredSubmissions = submissions.filter((s) => {
+    const matchesStatus = submissionStatusFilter === 'all' ? true : s.status === submissionStatusFilter;
+    const matchesSearch = !submissionSearch ? true : (
+      (s.memberName || '').toLowerCase().includes(submissionSearch.toLowerCase()) ||
+      (s.briefTitle || '').toLowerCase().includes(submissionSearch.toLowerCase()) ||
+      (s.role || '').toLowerCase().includes(submissionSearch.toLowerCase()) ||
+      (s.notes || '').toLowerCase().includes(submissionSearch.toLowerCase())
+    );
+    return matchesStatus && matchesSearch;
+  });
 
   // Filtered Users List
   const filteredUsers = users.filter((u) => {
@@ -431,6 +449,85 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           </div>
 
+          {/* Recent Member Deliverables QA Feed on Overview */}
+          <div className="bg-[#170204] border border-[#EFCEA5]/15 rounded-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#EFCEA5]/10">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <h3 className="text-base font-serif text-[#F8F4EF]">Incoming Member Deliverables &amp; Work</h3>
+              </div>
+              {onNavigateTab && (
+                <button 
+                  onClick={() => onNavigateTab('submissions')}
+                  className="text-xs text-[#EFCEA5] hover:underline flex items-center gap-1"
+                >
+                  Open Deliverables QA ({submissions.length}) &rarr;
+                </button>
+              )}
+            </div>
+
+            {submissions.length === 0 ? (
+              <div className="py-8 text-center text-xs text-[#EFCEA5]/60 space-y-1">
+                <p>No deliverables submitted by talent members yet.</p>
+                <p className="text-[0.68rem] text-[#EFCEA5]/40">When talent members upload PDFs or link Drive folders against production call sheets, they will stream here live.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {submissions.slice(0, 4).map((sub) => (
+                  <div key={sub.id} className="p-4 rounded-xl bg-black/40 border border-[#EFCEA5]/10 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-xs font-serif text-[#F8F4EF] font-medium block">{sub.briefTitle}</span>
+                        <span className="text-[0.68rem] text-[#EFCEA5]/70 block mt-0.5">
+                          Submitted by <strong className="text-[#EFCEA5]">{sub.memberName}</strong> ({sub.role})
+                        </span>
+                      </div>
+                      <span className={`text-[0.62rem] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider shrink-0 ${
+                        sub.status === 'Approved' ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/20' :
+                        sub.status === 'Revision Requested' ? 'bg-rose-950 text-rose-300 border border-rose-500/20' :
+                        'bg-amber-950 text-amber-300 border border-amber-500/20'
+                      }`}>
+                        {sub.status}
+                      </span>
+                    </div>
+
+                    {sub.notes && (
+                      <p className="text-xs text-[#F8F4EF]/80 italic bg-[#1C0306]/50 p-2.5 rounded-lg border border-[#EFCEA5]/5">
+                        &ldquo;{sub.notes}&rdquo;
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-between pt-2 border-t border-[#EFCEA5]/10 text-xs">
+                      <span className="text-[0.65rem] text-[#EFCEA5]/50">{sub.date}</span>
+                      <div className="flex items-center gap-2">
+                        {sub.pdfUrl && (
+                          <a
+                            href={sub.pdfUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2 py-1 rounded bg-[#EFCEA5]/10 text-[#EFCEA5] hover:bg-[#EFCEA5]/20 text-[0.68rem] font-semibold flex items-center gap-1 transition-colors"
+                          >
+                            <FileText className="w-3 h-3 text-red-400" /> View PDF
+                          </a>
+                        )}
+                        {sub.link && (
+                          <a
+                            href={sub.link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2 py-1 rounded bg-white/5 text-[#EFCEA5] hover:bg-white/10 text-[0.68rem] font-semibold flex items-center gap-1 transition-colors"
+                          >
+                            <ExternalLink className="w-3 h-3" /> Drive / Link
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
         </div>
       )}
 
@@ -705,7 +802,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 workspaceStore.addHeroStreamItem({
                   title,
                   category: 'High-Fashion Editorial',
-                  tag: `Look 0${heroStream.filter(i => i.rowNumber === activeHeroRow).length + 1} // Autumn`,
+                  tag: '',
                   image: '/assets/images/editorial_hero.jpg',
                   rowNumber: activeHeroRow,
                   orderIndex: heroStream.filter(i => i.rowNumber === activeHeroRow).length + 1,
@@ -881,14 +978,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   className="group bg-[#170204] border border-[#EFCEA5]/15 rounded-2xl overflow-hidden transition-all hover:border-[#EFCEA5]/40"
                 >
                   <div className="relative aspect-[4/3] bg-black overflow-hidden">
-                    <img 
-                      src={work.image} 
-                      alt={work.title} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                    {isVideoMedia(work.videoUrl || work.image, work.mediaType) ? (
+                      <>
+                        <video 
+                          src={work.videoUrl || work.image} 
+                          poster={work.videoUrl ? work.image : undefined}
+                          muted 
+                          loop 
+                          playsInline 
+                          autoPlay 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute top-3 left-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#1F0205]/85 border border-[#EFCEA5]/30 text-[#EFCEA5] text-[0.62rem] font-semibold tracking-wider backdrop-blur-md shadow-md z-10">
+                          <Video className="w-3 h-3 text-[#EFCEA5]" />
+                          <span>MOTION</span>
+                        </div>
+                      </>
+                    ) : (
+                      <img 
+                        src={work.image} 
+                        alt={work.title} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    )}
+                    <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
                       {work.featured && (
-                        <span className="px-2.5 py-1 rounded-full bg-amber-500 text-black text-[0.62rem] font-bold uppercase tracking-wider">
+                        <span className="px-2.5 py-1 rounded-full bg-amber-500 text-black text-[0.62rem] font-bold uppercase tracking-wider shadow">
                           Featured
                         </span>
                       )}
@@ -897,7 +1012,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                   <div className="p-5 space-y-3">
                     <span className="text-[0.65rem] text-[#EFCEA5]/70 uppercase tracking-widest font-semibold block">
-                      {work.tag} &bull; {work.discipline}
+                      {work.discipline}
                     </span>
                     <h3 className="text-base font-serif text-[#F8F4EF] font-medium">{work.title}</h3>
                     <p className="text-xs text-[#EFCEA5]/60">{work.category}</p>
@@ -1204,6 +1319,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   ))}
                                 </div>
                               )}
+
+                              {/* Delivered Work List for this Brief */}
+                              {briefSubs.length > 0 && (
+                                <div className="pt-3 border-t border-[#EFCEA5]/10 space-y-2">
+                                  <span className="text-[0.65rem] uppercase tracking-wider text-emerald-400 font-semibold block">
+                                    Delivered Work for this Call Sheet ({briefSubs.length}):
+                                  </span>
+                                  <div className="space-y-1.5">
+                                    {briefSubs.map((s) => (
+                                      <div key={s.id} className="p-2.5 rounded-lg bg-black/60 border border-emerald-500/20 flex items-center justify-between text-xs">
+                                        <div>
+                                          <span className="text-[#F8F4EF] font-medium block">{s.memberName} ({s.role})</span>
+                                          {s.notes && <span className="text-[0.68rem] text-[#EFCEA5]/70 italic block">&ldquo;{s.notes}&rdquo;</span>}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          {s.pdfUrl && (
+                                            <a href={s.pdfUrl} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded bg-[#EFCEA5]/10 text-[#EFCEA5] hover:bg-[#EFCEA5]/20 text-[0.68rem] flex items-center gap-1">
+                                              <FileText className="w-3 h-3 text-red-400" /> PDF
+                                            </a>
+                                          )}
+                                          {s.link && (
+                                            <a href={s.link} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded bg-white/5 text-[#EFCEA5] hover:bg-white/10 text-[0.68rem] flex items-center gap-1">
+                                              <ExternalLink className="w-3 h-3" /> Drive
+                                            </a>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </>
                           );
                         })()}
@@ -1222,43 +1368,140 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           ============================================================== */}
       {activeTab === 'submissions' && (
         <div className="space-y-6">
-          <div className="pb-4 border-b border-[#EFCEA5]/15">
-            <h2 className="text-2xl font-serif text-[#F8F4EF]">Member Deliverables QA Review</h2>
-            <p className="text-xs text-[#EFCEA5]/70 mt-1">
-              Review Google Drive &amp; Dropbox asset links submitted by talent against assigned call sheets.
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#EFCEA5]/15">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-500/20 text-xs font-semibold uppercase tracking-wider mb-2">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Quality Assurance &amp; Deliverables
+              </div>
+              <h2 className="text-2xl font-serif text-[#F8F4EF]">Member Deliverables QA Review</h2>
+              <p className="text-xs text-[#EFCEA5]/70 mt-1">
+                Review PDF assignments and cloud drive asset packages submitted by collective talent against assigned call sheets.
+              </p>
+            </div>
+
+            {/* Submissions Search & Filter */}
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#EFCEA5]/50" />
+                <input
+                  type="text"
+                  placeholder="Filter deliverables..."
+                  value={submissionSearch}
+                  onChange={(e) => setSubmissionSearch(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 rounded-xl bg-[#170204] border border-[#EFCEA5]/20 text-xs text-[#F8F4EF] placeholder-[#EFCEA5]/40 focus:outline-none focus:border-[#EFCEA5]"
+                />
+              </div>
+
+              <select
+                value={submissionStatusFilter}
+                onChange={(e) => setSubmissionStatusFilter(e.target.value as any)}
+                className="px-3 py-1.5 rounded-xl bg-[#170204] border border-[#EFCEA5]/20 text-xs text-[#F8F4EF] focus:outline-none focus:border-[#EFCEA5]"
+              >
+                <option value="all">All Statuses ({submissions.length})</option>
+                <option value="Submitted">Submitted ({submissions.filter((s) => s.status === 'Submitted').length})</option>
+                <option value="Approved">Approved ({submissions.filter((s) => s.status === 'Approved').length})</option>
+                <option value="Revision Requested">Revision ({submissions.filter((s) => s.status === 'Revision Requested').length})</option>
+              </select>
+            </div>
           </div>
 
-          {submissions.length === 0 ? (
+          {filteredSubmissions.length === 0 ? (
             <div className="p-16 text-center rounded-3xl bg-[#170204] border border-[#EFCEA5]/15 space-y-3">
               <CheckCircle2 className="w-8 h-8 text-[#EFCEA5]/40 mx-auto" />
               <h3 className="text-lg font-serif text-[#F8F4EF]">No Deliverables in QA Queue</h3>
               <p className="text-xs text-[#EFCEA5]/60 max-w-md mx-auto">
-                When members submit Google Drive or Dropbox links against project briefs, they will appear here for review and sign-off.
+                {submissionSearch || submissionStatusFilter !== 'all'
+                  ? 'No member deliverables match the selected filter criteria.'
+                  : 'When collective members submit PDF deliverables or cloud drive links against active production briefs, they will appear here for QA sign-off.'}
               </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {submissions.map((sub) => (
-                <div key={sub.id} className="p-6 bg-[#170204] border border-[#EFCEA5]/15 rounded-2xl space-y-3">
-                  <div className="flex items-center justify-between">
+              {filteredSubmissions.map((sub) => (
+                <div key={sub.id} className="p-6 bg-[#170204] border border-[#EFCEA5]/15 rounded-2xl space-y-4 transition-all hover:border-[#EFCEA5]/30">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#EFCEA5]/10">
                     <div>
-                      <h3 className="text-base font-serif text-[#F8F4EF]">{sub.briefTitle}</h3>
-                      <span className="text-xs text-[#EFCEA5]/70">Submitted by: {sub.memberName} ({sub.role})</span>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-serif text-[#F8F4EF] font-medium">{sub.briefTitle}</h3>
+                        <span className="text-[0.62rem] px-2 py-0.5 rounded-full bg-[#EFCEA5]/10 text-[#EFCEA5] uppercase font-semibold">
+                          {sub.role}
+                        </span>
+                      </div>
+                      <span className="text-xs text-[#EFCEA5]/70 block mt-1">
+                        Submitted by: <strong className="text-[#F8F4EF]">{sub.memberName}</strong> &bull; {sub.date}
+                      </span>
                     </div>
-                    <span className="text-xs px-2.5 py-1 rounded bg-emerald-950 text-emerald-300 font-semibold uppercase">
-                      {sub.status}
-                    </span>
+
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs px-3 py-1 rounded-full font-semibold uppercase tracking-wider ${
+                        sub.status === 'Approved' ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/20' :
+                        sub.status === 'Revision Requested' ? 'bg-rose-950 text-rose-300 border border-rose-500/20' :
+                        'bg-amber-950 text-amber-300 border border-amber-500/20'
+                      }`}>
+                        {sub.status}
+                      </span>
+                    </div>
                   </div>
-                  <p className="text-xs text-[#F8F4EF]/80 italic">&ldquo;{sub.notes}&rdquo;</p>
-                  <a
-                    href={sub.link}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs text-[#EFCEA5] hover:underline"
-                  >
-                    Open Drive Folder <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
+
+                  {sub.notes && (
+                    <div className="p-3.5 rounded-xl bg-black/40 border border-[#EFCEA5]/10">
+                      <span className="text-[0.65rem] text-[#EFCEA5]/60 uppercase tracking-wider block mb-1">
+                        Talent Submission Notes:
+                      </span>
+                      <p className="text-xs text-[#F8F4EF]/90 italic leading-relaxed">
+                        &ldquo;{sub.notes}&rdquo;
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                    {/* Media & Asset Links */}
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      {sub.pdfUrl && (
+                        <a
+                          href={sub.pdfUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3.5 py-1.5 rounded-xl bg-[#EFCEA5]/10 text-[#EFCEA5] hover:bg-[#EFCEA5]/20 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-[#EFCEA5]/20"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-red-400" /> Open PDF Deliverable
+                        </a>
+                      )}
+                      {sub.link && (
+                        <a
+                          href={sub.link}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3.5 py-1.5 rounded-xl bg-white/5 text-[#EFCEA5] hover:bg-white/10 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-[#EFCEA5]/10"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" /> Open Drive / Assets
+                        </a>
+                      )}
+                    </div>
+
+                    {/* QA Actions */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {sub.status !== 'Approved' && (
+                        <button
+                          onClick={() => workspaceStore.updateSubmissionStatus(sub.id, 'Approved')}
+                          className="px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 text-xs font-semibold uppercase tracking-wider flex items-center gap-1 transition-colors border border-emerald-500/30"
+                        >
+                          <Check className="w-3 h-3" /> Approve
+                        </button>
+                      )}
+                      {sub.status !== 'Revision Requested' && (
+                        <button
+                          onClick={() => {
+                            const feedback = prompt('Enter revision feedback for member:');
+                            workspaceStore.updateSubmissionStatus(sub.id, 'Revision Requested', feedback || undefined);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 text-xs font-semibold uppercase tracking-wider flex items-center gap-1 transition-colors border border-amber-500/30"
+                        >
+                          <Clock className="w-3 h-3" /> Request Revision
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

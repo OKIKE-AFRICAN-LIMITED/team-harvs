@@ -8,9 +8,10 @@ import {
   Trash2, 
   Star, 
   Eye, 
-  ExternalLink 
+  ExternalLink,
+  Video
 } from 'lucide-react';
-import { LookbookWork, workspaceStore } from '@/lib/workspaceStore';
+import { LookbookWork, workspaceStore, isVideoMedia } from '@/lib/workspaceStore';
 
 interface LookbookCmsTabProps {
   lookbook: LookbookWork[];
@@ -147,20 +148,32 @@ export const LookbookCmsTab: React.FC<LookbookCmsTabProps> = ({
             >
               {/* Image Frame */}
               <div className="relative aspect-[3/4] w-full overflow-hidden bg-black/40">
-                <img
-                  src={work.image}
-                  alt={work.title}
-                  className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
-                  onError={(e) => {
-                    // Fallback to placeholder if broken
-                    (e.target as HTMLImageElement).src = '/assets/images/editorial_hero.jpg';
-                  }}
-                />
+                {isVideoMedia(work.videoUrl || work.image, work.mediaType) ? (
+                  <video
+                    src={work.videoUrl || work.image}
+                    poster={work.videoUrl ? work.image : undefined}
+                    muted
+                    loop
+                    playsInline
+                    autoPlay
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                ) : (
+                  <img
+                    src={work.image}
+                    alt={work.title}
+                    className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/assets/images/editorial_hero.jpg';
+                    }}
+                  />
+                )}
 
-                {/* Overlays: Tag & Featured Star */}
-                <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none">
-                  <span className="text-[0.62rem] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider bg-[#1F0205]/85 text-[#EFCEA5] backdrop-blur-md border border-[#EFCEA5]/30">
-                    {work.tag}
+                {/* Overlays: Discipline & Featured Star */}
+                <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none z-10">
+                  <span className="text-[0.62rem] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider bg-[#1F0205]/85 text-[#EFCEA5] backdrop-blur-md border border-[#EFCEA5]/30 flex items-center gap-1">
+                    {isVideoMedia(work.videoUrl || work.image, work.mediaType) && <Video className="w-2.5 h-2.5 text-[#EFCEA5]" />}
+                    {work.discipline || 'EDITORIAL'}
                   </span>
 
                   <button

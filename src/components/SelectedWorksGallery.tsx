@@ -4,134 +4,40 @@ import {
   ContainerStagger,
 } from "@/components/ui/animated-gallery"
 import { Button } from "@/components/ui/button"
-import { Sparkles, Eye, ArrowUpRight } from "lucide-react"
+import { Sparkles, Eye, ArrowUpRight, Video, Play } from "lucide-react"
 
-import { DISCIPLINES, workspaceStore } from "@/lib/workspaceStore"
+import { DISCIPLINES, workspaceStore, DEFAULT_LOOKBOOK, isVideoMedia } from "@/lib/workspaceStore"
 
 export interface GalleryItem {
   id: string
   title: string
   category: string
   image: string
-  tag: string
+  videoUrl?: string
+  mediaType?: 'image' | 'video'
+  tag?: string
   discipline?: string
 }
 
 interface SelectedWorksGalleryProps {
+  items?: GalleryItem[]
   activeFilter?: string
   onSelectFilter?: (filter: string) => void
   onOpenJoin?: () => void
   onSelectPreview?: (item: GalleryItem) => void
 }
 
-const GALLERY_ITEMS: GalleryItem[] = [
-  {
-    id: 'sw-01',
-    title: 'Solitude in Crimson',
-    category: 'Fashion & Tailoring',
-    discipline: 'Stylists',
-    tag: 'Look 01 // Autumn',
-    image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    id: 'sw-02',
-    title: 'Double-Breasted Cut',
-    category: 'Avant-Garde Silhouette',
-    discipline: 'Stylists',
-    tag: 'Look 02 // Tailoring',
-    image: '/assets/images/avant_garde_fashion.jpg',
-  },
-  {
-    id: 'sw-03',
-    title: 'Architectural Trench',
-    category: 'High-Fashion Outerwear',
-    discipline: 'Stylists',
-    tag: 'Look 03 // Structure',
-    image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    id: 'sw-04',
-    title: 'Editorial Hero Look',
-    category: 'Team Harvs Autumn Series',
-    discipline: 'Photographers',
-    tag: 'Look 04 // Direction',
-    image: '/assets/images/editorial_hero.jpg',
-  },
-  {
-    id: 'sw-05',
-    title: 'Commercial Campaign Lookbook',
-    category: 'Commercial Campaign Issue 01',
-    discipline: 'Photographers',
-    tag: 'Look 05 // Campaign',
-    image: '/assets/images/campaign_lookbook.jpg',
-  },
-  {
-    id: 'sw-06',
-    title: 'Metropolitan Motion',
-    category: 'Outdoor Dynamic Direction',
-    discipline: 'Videographers / BTS Creators',
-    tag: 'Look 06 // Dynamics',
-    image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    id: 'sw-07',
-    title: 'Model Development Dossier',
-    category: 'Talent Dossier Scouting',
-    discipline: 'Models',
-    tag: 'Look 07 // Cast',
-    image: '/assets/images/model_portrait.jpg',
-  },
-  {
-    id: 'sw-08',
-    title: '35mm Film Studio Set',
-    category: 'BTS & Production Cinematography',
-    discipline: 'Videographers / BTS Creators',
-    tag: 'Look 08 // On Set',
-    image: '/assets/images/creative_production_bts.jpg',
-  },
-  {
-    id: 'sw-09',
-    title: 'Monochromatic Form',
-    category: 'Studio Architecture',
-    discipline: 'Photographers',
-    tag: 'Look 09 // Minimal',
-    image: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    id: 'sw-10',
-    title: 'Fashion Motion Still',
-    category: 'Movement Study',
-    discipline: 'Videographers / BTS Creators',
-    tag: 'Look 10 // Cinema Motion',
-    image: '/assets/images/fashion_motion_still.jpg',
-  },
-  {
-    id: 'sw-11',
-    title: 'Pure Expression',
-    category: 'Editorial Lighting',
-    discipline: 'Makeup Artists',
-    tag: 'Look 11 // Expression',
-    image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    id: 'sw-12',
-    title: 'Concrete Monolith',
-    category: 'Urban Set Direction',
-    discipline: 'Creative Assistants',
-    tag: 'Look 12 // Spatial',
-    image: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1200&q=80',
-  },
-];
-
 export const SelectedWorksGallery: React.FC<SelectedWorksGalleryProps> = ({
+  items: propItems,
   activeFilter = 'All',
   onSelectFilter,
   onOpenJoin,
   onSelectPreview,
 }) => {
   const [items, setItems] = React.useState<GalleryItem[]>(() => {
+    if (propItems && propItems.length > 0) return propItems;
     const storeWorks = workspaceStore.getLookbook();
-    return storeWorks.length > 0 ? storeWorks : GALLERY_ITEMS;
+    return storeWorks.length > 0 ? storeWorks : DEFAULT_LOOKBOOK;
   });
 
   const [localFilter, setLocalFilter] = React.useState(activeFilter);
@@ -143,14 +49,25 @@ export const SelectedWorksGallery: React.FC<SelectedWorksGalleryProps> = ({
   }, [activeFilter]);
 
   React.useEffect(() => {
+    if (propItems && propItems.length > 0) {
+      setItems(propItems);
+    }
+  }, [propItems]);
+
+  React.useEffect(() => {
     const sync = () => {
-      const storeWorks = workspaceStore.getLookbook();
-      if (storeWorks.length > 0) {
-        setItems(storeWorks);
+      if (propItems && propItems.length > 0) {
+        setItems(propItems);
+      } else {
+        const storeWorks = workspaceStore.getLookbook();
+        if (storeWorks.length > 0) {
+          setItems(storeWorks);
+        }
       }
     };
+    sync();
     return workspaceStore.subscribe(sync);
-  }, []);
+  }, [propItems]);
 
   const handleFilterClick = (filter: string) => {
     setLocalFilter(filter);
@@ -187,23 +104,13 @@ export const SelectedWorksGallery: React.FC<SelectedWorksGalleryProps> = ({
               className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-normal text-[#1F0205] tracking-tight leading-[1.1] mb-4 uppercase"
               style={{ fontFamily: 'var(--font-display)' }}
             >
-              Curated Productions &amp;{" "}
+              Curated Productions{" "}
               <span 
                 className="italic text-[#680F1B] normal-case"
                 style={{ fontFamily: 'var(--font-serif)' }}
               >
-                editorial direction
               </span>
             </h2>
-          </ContainerAnimated>
-
-          <ContainerAnimated className="max-w-2xl mx-auto mb-7">
-            <p 
-              className="text-sm sm:text-base text-[#382C2E]/85 leading-relaxed"
-              style={{ fontFamily: 'var(--font-sans)' }}
-            >
-              An intentional visual dossier of collaborative looks, commercial campaign lookbooks, and model development dossiers captured across fashion, tailoring, and cinematography.
-            </p>
           </ContainerAnimated>
 
           {/* Interactive Discipline Filter Pills */}
@@ -267,13 +174,31 @@ export const SelectedWorksGallery: React.FC<SelectedWorksGalleryProps> = ({
                 onClick={() => onSelectPreview?.(item)}
                 className="group relative cursor-pointer overflow-hidden rounded-2xl bg-[#DFD3C2] border border-[#580d16]/20 shadow-md transition-all duration-500 hover:-translate-y-1.5 hover:shadow-2xl hover:border-[#680F1B]/70"
               >
-                <div className="aspect-[4/3] w-full overflow-hidden">
-                  <img
-                    src={item.image}
-                    alt={item.title}
-                    className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                    loading="lazy"
-                  />
+                <div className="aspect-[4/3] w-full overflow-hidden relative">
+                  {isVideoMedia(item.videoUrl || item.image, item.mediaType) ? (
+                    <>
+                      <video
+                        src={item.videoUrl || item.image}
+                        poster={item.videoUrl ? item.image : undefined}
+                        muted
+                        loop
+                        playsInline
+                        autoPlay
+                        className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                      />
+                      <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1F0205]/85 border border-[#EFCEA5]/30 text-[#EFCEA5] text-[0.62rem] font-semibold tracking-wider backdrop-blur-md shadow-md z-10">
+                        <Video className="w-3 h-3 text-[#EFCEA5]" />
+                        <span>CINEMA MOTION</span>
+                      </div>
+                    </>
+                  ) : (
+                    <img
+                      src={item.image}
+                      alt={item.title}
+                      className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                      loading="lazy"
+                    />
+                  )}
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-t from-[#1F0205]/90 via-[#1F0205]/30 to-transparent opacity-85 group-hover:opacity-95 transition-opacity" />
                 <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5 text-left">
@@ -281,7 +206,7 @@ export const SelectedWorksGallery: React.FC<SelectedWorksGalleryProps> = ({
                     className="inline-block text-[0.65rem] sm:text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-[#EFCEA5] mb-1.5"
                     style={{ fontFamily: 'var(--font-sans)' }}
                   >
-                    {item.tag} {item.discipline ? `• ${item.discipline}` : ''}
+                    {item.discipline || 'EDITORIAL'}
                   </span>
                   <h3 
                     className="text-sm sm:text-base font-medium text-[#F8F4EF] uppercase tracking-wide truncate mb-0.5"

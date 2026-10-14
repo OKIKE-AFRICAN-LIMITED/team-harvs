@@ -1,5 +1,5 @@
 import { createClient, type User, type Session } from '@supabase/supabase-js';
-import type { Application, LookbookWork, ProjectBrief, CreativeAsset, MemberSubmission, HeroStreamItem, BriefInteraction } from './workspaceStore';
+import { isVideoMedia, type Application, type LookbookWork, type ProjectBrief, type CreativeAsset, type MemberSubmission, type HeroStreamItem, type BriefInteraction } from './workspaceStore';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -269,16 +269,36 @@ export const supabaseService = {
       console.warn('Supabase getLookbook error:', error);
       return null;
     }
-    return data as LookbookWork[];
+    return (data || []).map((row: any) => {
+      const isVideo = isVideoMedia(row.video_url || row.image, row.media_type);
+      return {
+        id: row.id,
+        title: row.title,
+        category: row.category,
+        tag: row.tag || '',
+        image: row.image,
+        videoUrl: row.video_url || (isVideo ? row.image : undefined),
+        mediaType: (row.media_type || (isVideo ? 'video' : 'image')) as 'image' | 'video',
+        discipline: row.discipline,
+        featured: row.featured,
+        photographer: row.photographer,
+        stylist: row.stylist,
+        model: row.model,
+        date: row.season || 'Autumn 2026',
+        description: row.description,
+      };
+    });
   },
 
   async insertLookbookWork(work: Omit<LookbookWork, 'id' | 'date'>): Promise<LookbookWork | null> {
     if (!isSupabaseConfigured) return null;
+    const payload: any = {
+      ...work,
+      image: work.videoUrl || work.image,
+    };
     const { data, error } = await supabase
       .from('lookbook_works')
-      .insert([{
-        ...work,
-      }])
+      .insert([payload])
       .select()
       .single();
 
@@ -289,23 +309,41 @@ export const supabaseService = {
     return data as LookbookWork;
   },
 
-  async updateLookbookWork(id: string, updates: Partial<LookbookWork>): Promise<LookbookWork | null> {
+  async upsertLookbookWork(work: Partial<LookbookWork> & { id: string }): Promise<LookbookWork | null> {
     if (!isSupabaseConfigured) return null;
-    const payload: any = { ...updates };
-    delete payload.id;
-    delete payload.date;
+    const isVideo = isVideoMedia(work.videoUrl || work.image, work.mediaType);
+    const primaryMedia = isVideo ? (work.videoUrl || work.image || '') : (work.image || '');
+
+    const payload: any = {
+      id: work.id,
+      title: work.title || 'Editorial Look',
+      category: work.category || 'Fashion & Tailoring',
+      tag: '',
+      image: primaryMedia,
+      discipline: work.discipline || 'Stylists',
+      featured: work.featured ?? true,
+      photographer: work.photographer || '',
+      stylist: work.stylist || '',
+      model: work.model || '',
+      description: work.description || '',
+    };
+    Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
+
     const { data, error } = await supabase
       .from('lookbook_works')
-      .update(payload)
-      .eq('id', id)
+      .upsert([payload], { onConflict: 'id' })
       .select()
       .maybeSingle();
 
     if (error) {
-      console.error('Supabase updateLookbookWork error:', error);
+      console.error('Supabase upsertLookbookWork error:', error);
       return null;
     }
     return data as LookbookWork;
+  },
+
+  async updateLookbookWork(id: string, updates: Partial<LookbookWork>): Promise<LookbookWork | null> {
+    return this.upsertLookbookWork({ id, ...updates });
   },
 
   async deleteLookbookWork(id: string): Promise<boolean> {
@@ -444,6 +482,7 @@ export const supabaseService = {
       memberName: row.member_name,
       role: row.role,
       link: row.link,
+      pdfUrl: row.pdf_url || undefined,
       notes: row.notes,
       date: row.created_at ? new Date(row.created_at).toLocaleDateString() : 'Recent',
       status: row.status,
@@ -452,25 +491,41 @@ export const supabaseService = {
 
   async insertSubmission(sub: Omit<MemberSubmission, 'id' | 'date' | 'status'>, memberId?: string): Promise<MemberSubmission | null> {
     if (!isSupabaseConfigured) return null;
-    const { data, error } = await supabase
+    const isUuid = Boolean(memberId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(memberId));
+    const payload: any = {
+      brief_id: sub.briefId,
+      brief_title: sub.briefTitle,
+      member_id: isUuid ? memberId : null,
+      member_name: sub.memberName || 'Creative Member',
+      role: sub.role || 'Stylists',
+      link: sub.link || sub.pdfUrl || '',
+      pdf_url: sub.pdfUrl || '',
+      notes: sub.notes || '',
+      status: 'Submitted',
+    };
+
+    let { data, error } = await supabase
       .from('member_submissions')
-      .insert([{
-        brief_id: sub.briefId,
-        brief_title: sub.briefTitle,
-        member_id: memberId || null,
-        member_name: sub.memberName,
-        role: sub.role,
-        link: sub.link,
-        notes: sub.notes,
-        status: 'Submitted',
-      }])
+      .insert([payload])
       .select()
-      .single();
+      .maybeSingle();
+
+    if (error && error.message?.includes('pdf_url')) {
+      delete payload.pdf_url;
+      const retry = await supabase
+        .from('member_submissions')
+        .insert([payload])
+        .select()
+        .maybeSingle();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
-      console.error('Supabase insertSubmission error:', error);
+      console.warn('Supabase insertSubmission notice (stored locally):', error.message);
       return null;
     }
+    if (!data) return null;
     return {
       id: data.id,
       briefId: data.brief_id,
@@ -478,6 +533,7 @@ export const supabaseService = {
       memberName: data.member_name,
       role: data.role,
       link: data.link,
+      pdfUrl: data.pdf_url || sub.pdfUrl,
       notes: data.notes,
       date: 'Just now',
       status: data.status,
@@ -554,7 +610,7 @@ export const supabaseService = {
       id: item.id,
       title: item.title || 'Editorial Look',
       category: item.category || 'High-Fashion Editorial',
-      tag: item.tag || 'Look // Harvs',
+      tag: item.tag ?? '',
       image: item.image,
       row_number: item.rowNumber || 1,
       order_index: item.orderIndex || 0,

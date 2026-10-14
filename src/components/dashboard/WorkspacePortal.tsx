@@ -17,6 +17,7 @@ import {
   CreativeAsset, 
   MemberSubmission,
   HeroStreamItem,
+  isVideoMedia,
 } from '@/lib/workspaceStore';
 import { isSupabaseConfigured, authService, type Profile } from '@/lib/supabase';
 import { AuthPage } from '../auth/AuthPage';
@@ -368,6 +369,8 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
         isOpen={isSubmitDeliverableOpen}
         onClose={() => setIsSubmitDeliverableOpen(false)}
         briefs={briefs}
+        currentUser={currentUser}
+        currentProfile={currentProfile}
       />
 
       {/* 6. Quick Lookbook Inspection Lightbox Modal */}
@@ -380,22 +383,33 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
             className="relative max-w-2xl w-full bg-[#170204] border border-[#EFCEA5]/30 rounded-3xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="relative aspect-[4/3] bg-black">
-              <img 
-                src={previewLookWork.image} 
-                alt={previewLookWork.title} 
-                className="w-full h-full object-cover" 
-              />
+            <div className="relative aspect-[4/3] bg-black overflow-hidden flex items-center justify-center">
+              {isVideoMedia(previewLookWork.videoUrl || previewLookWork.image, previewLookWork.mediaType) ? (
+                <video 
+                  src={previewLookWork.videoUrl || previewLookWork.image} 
+                  controls
+                  autoPlay
+                  playsInline
+                  loop
+                  className="w-full h-full object-contain bg-black" 
+                />
+              ) : (
+                <img 
+                  src={previewLookWork.image} 
+                  alt={previewLookWork.title} 
+                  className="w-full h-full object-cover" 
+                />
+              )}
               <button
                 onClick={() => setPreviewLookWork(null)}
-                className="absolute top-4 right-4 p-2 rounded-full bg-black/60 text-white hover:bg-black transition-colors"
+                className="absolute top-4 right-4 p-2 rounded-full bg-black/60 text-white hover:bg-black transition-colors z-20"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-8 space-y-3">
               <span className="text-[0.65rem] tracking-[0.2em] uppercase font-semibold text-[#EFCEA5]">
-                {previewLookWork.tag} &bull; {previewLookWork.discipline}
+                {previewLookWork.discipline}
               </span>
               <h2 className="text-2xl font-serif text-[#F8F4EF]">{previewLookWork.title}</h2>
               <p className="text-xs text-[#EFCEA5]/80">{previewLookWork.category}</p>
