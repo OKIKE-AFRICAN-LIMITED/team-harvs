@@ -126,9 +126,169 @@ export const DEFAULT_HERO_STREAM: HeroStreamItem[] = [
   { id: 'hs-12', title: 'Daylight Cinema', category: 'BTS Cinematography', tag: 'Look 12 // Cinema', image: '/assets/images/creative_production_bts.jpg', rowNumber: 2, orderIndex: 6 },
 ];
 
+// Default initial curated works for Selected Works archive
+export const DEFAULT_LOOKBOOK: LookbookWork[] = [
+  {
+    id: 'sw-01',
+    title: 'Solitude in Crimson',
+    category: 'Fashion & Tailoring',
+    discipline: 'Stylists',
+    tag: 'Look 01 // Autumn',
+    image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=80',
+    date: 'Autumn 2026',
+    featured: true,
+    photographer: 'Studio Harvs Camera',
+    stylist: 'Aniekeme Bassey',
+    description: 'Experimental crimson silhouette exploring structured avant-garde tailoring and intentional motion.'
+  },
+  {
+    id: 'sw-02',
+    title: 'Double-Breasted Cut',
+    category: 'Avant-Garde Silhouette',
+    discipline: 'Stylists',
+    tag: 'Look 02 // Tailoring',
+    image: '/assets/images/avant_garde_fashion.jpg',
+    date: 'Autumn 2026',
+    featured: true,
+    photographer: 'Harvs Editorial Team',
+    stylist: 'Team Harvs',
+    description: 'Structured tailoring with pronounced shoulder pads and monochromatic harmony.'
+  },
+  {
+    id: 'sw-03',
+    title: 'Architectural Trench',
+    category: 'High-Fashion Outerwear',
+    discipline: 'Stylists',
+    tag: 'Look 03 // Structure',
+    image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1200&q=80',
+    date: 'Autumn 2026',
+    featured: true,
+    photographer: 'Studio Harvs Camera',
+    stylist: 'Team Harvs',
+    description: 'Volumetric trench cut constructed for kinetic movement and outdoor editorial settings.'
+  },
+  {
+    id: 'sw-04',
+    title: 'Editorial Hero Look',
+    category: 'Team Harvs Autumn Series',
+    discipline: 'Photographers',
+    tag: 'Look 04 // Direction',
+    image: '/assets/images/editorial_hero.jpg',
+    date: 'Autumn 2026',
+    featured: true,
+    photographer: 'Studio Harvs',
+    stylist: 'Team Harvs',
+    description: 'Signature editorial hero look shot on location in Uyo, Akwa Ibom.'
+  },
+  {
+    id: 'sw-05',
+    title: 'Commercial Campaign Lookbook',
+    category: 'Commercial Campaign Issue 01',
+    discipline: 'Photographers',
+    tag: 'Look 05 // Campaign',
+    image: '/assets/images/campaign_lookbook.jpg',
+    date: 'Autumn 2026',
+    featured: true,
+    photographer: 'Studio Harvs',
+    stylist: 'Team Harvs',
+    description: 'Commercial brand campaign with cinematic color grading and modern street texture.'
+  },
+  {
+    id: 'sw-06',
+    title: 'Metropolitan Motion',
+    category: 'Outdoor Dynamic Direction',
+    discipline: 'Videographers / BTS Creators',
+    tag: 'Look 06 // Dynamics',
+    image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=1200&q=80',
+    date: 'Autumn 2026',
+    featured: false,
+    photographer: 'Motion Studio',
+    stylist: 'Team Harvs',
+    description: 'Dynamic outdoor pacing capturing wind-swept textures and active tailoring.'
+  },
+  {
+    id: 'sw-07',
+    title: 'Model Development Dossier',
+    category: 'Talent Dossier Scouting',
+    discipline: 'Models',
+    tag: 'Look 07 // Cast',
+    image: '/assets/images/model_portrait.jpg',
+    date: 'Autumn 2026',
+    featured: false,
+    photographer: 'Harvs Portrait Studio',
+    stylist: 'Team Harvs',
+    description: 'Clean-light beauty & profile test for emerging collective model roster.'
+  },
+  {
+    id: 'sw-08',
+    title: '35mm Film Studio Set',
+    category: 'BTS & Production Cinematography',
+    discipline: 'Videographers / BTS Creators',
+    tag: 'Look 08 // On Set',
+    image: '/assets/images/creative_production_bts.jpg',
+    date: 'Autumn 2026',
+    featured: false,
+    photographer: 'BTS Cinema Unit',
+    stylist: 'Team Harvs',
+    description: 'Raw behind-the-scenes 35mm film stills from our creative production sessions in Uyo.'
+  },
+  {
+    id: 'sw-09',
+    title: 'Monochromatic Form',
+    category: 'Studio Architecture',
+    discipline: 'Photographers',
+    tag: 'Look 09 // Minimal',
+    image: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1200&q=80',
+    date: 'Autumn 2026',
+    featured: false,
+    photographer: 'Studio Harvs Camera',
+    stylist: 'Team Harvs',
+    description: 'Studio architectural lighting focusing on sharp geometric cuts and textures.'
+  },
+  {
+    id: 'sw-10',
+    title: 'Fashion Motion Still',
+    category: 'Movement Study',
+    discipline: 'Videographers / BTS Creators',
+    tag: 'Look 10 // Cinema Motion',
+    image: '/assets/images/fashion_motion_still.jpg',
+    date: 'Autumn 2026',
+    featured: false,
+    photographer: 'Motion Studio',
+    stylist: 'Team Harvs',
+    description: 'Cinematic freeze-frame studying fabric flow at 60fps under tungsten warm lighting.'
+  },
+  {
+    id: 'sw-11',
+    title: 'Pure Expression',
+    category: 'Editorial Lighting',
+    discipline: 'Makeup Artists',
+    tag: 'Look 11 // Expression',
+    image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1200&q=80',
+    date: 'Autumn 2026',
+    featured: false,
+    photographer: 'Studio Harvs',
+    stylist: 'Team Harvs',
+    description: 'High-contrast editorial makeup look highlighting skin texture and natural glow.'
+  },
+  {
+    id: 'sw-12',
+    title: 'Concrete Monolith',
+    category: 'Urban Set Direction',
+    discipline: 'Creative Assistants',
+    tag: 'Look 12 // Spatial',
+    image: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1200&q=80',
+    date: 'Autumn 2026',
+    featured: false,
+    photographer: 'Studio Harvs',
+    stylist: 'Team Harvs',
+    description: 'Spatial and brutalist set design on location utilizing industrial concrete geometry.'
+  },
+];
+
 class WorkspaceStore {
   private applications: Application[] = [];
-  private lookbook: LookbookWork[] = [];
+  private lookbook: LookbookWork[] = DEFAULT_LOOKBOOK;
   private briefs: ProjectBrief[] = [];
   private assets: CreativeAsset[] = [];
   private submissions: MemberSubmission[] = [];
@@ -164,8 +324,12 @@ class WorkspaceStore {
         localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(this.applications));
         changed = true;
       }
-      if (lb !== null) {
+      if (lb !== null && lb.length > 0) {
         this.lookbook = lb;
+        localStorage.setItem(STORAGE_KEYS.LOOKBOOK, JSON.stringify(this.lookbook));
+        changed = true;
+      } else if (this.lookbook.length === 0) {
+        this.lookbook = DEFAULT_LOOKBOOK;
         localStorage.setItem(STORAGE_KEYS.LOOKBOOK, JSON.stringify(this.lookbook));
         changed = true;
       }
@@ -214,7 +378,7 @@ class WorkspaceStore {
       this.applications = apps ? JSON.parse(apps) : [];
 
       const lb = localStorage.getItem(STORAGE_KEYS.LOOKBOOK);
-      this.lookbook = lb ? JSON.parse(lb) : [];
+      this.lookbook = (lb && JSON.parse(lb).length > 0) ? JSON.parse(lb) : DEFAULT_LOOKBOOK;
 
       const br = localStorage.getItem(STORAGE_KEYS.BRIEFS);
       this.briefs = br ? JSON.parse(br) : [];
@@ -226,7 +390,7 @@ class WorkspaceStore {
       this.submissions = sub ? JSON.parse(sub) : [];
 
       const hs = localStorage.getItem(STORAGE_KEYS.HERO_STREAM);
-      this.heroStream = hs ? JSON.parse(hs) : DEFAULT_HERO_STREAM;
+      this.heroStream = (hs && JSON.parse(hs).length > 0) ? JSON.parse(hs) : DEFAULT_HERO_STREAM;
 
       const usr = localStorage.getItem(STORAGE_KEYS.USERS);
       this.users = usr ? JSON.parse(usr) : [];
@@ -235,7 +399,7 @@ class WorkspaceStore {
       this.briefInteractions = bi ? JSON.parse(bi) : [];
     } catch {
       this.applications = [];
-      this.lookbook = [];
+      this.lookbook = DEFAULT_LOOKBOOK;
       this.briefs = [];
       this.assets = [];
       this.submissions = [];
@@ -275,13 +439,19 @@ class WorkspaceStore {
   }
 
   public updateHeroStreamItem(id: string, updates: Partial<HeroStreamItem>) {
+    const existing = this.heroStream.find((item) => item.id === id);
+    const merged = existing ? { ...existing, ...updates } : ({ id, ...updates } as HeroStreamItem);
+
     this.heroStream = this.heroStream.map((item) =>
       item.id === id ? { ...item, ...updates } : item
     );
     this.persist(STORAGE_KEYS.HERO_STREAM, this.heroStream);
+    this.notify();
 
     if (isSupabaseConfigured) {
-      supabaseService.upsertHeroStreamItem({ id, ...updates } as any).catch(console.warn);
+      supabaseService.upsertHeroStreamItem(merged).catch((err) =>
+        console.warn('Supabase upsertHeroStreamItem failed:', err)
+      );
     }
   }
 
@@ -292,9 +462,12 @@ class WorkspaceStore {
     };
     this.heroStream = [...this.heroStream, newItem];
     this.persist(STORAGE_KEYS.HERO_STREAM, this.heroStream);
+    this.notify();
 
     if (isSupabaseConfigured) {
-      supabaseService.upsertHeroStreamItem(newItem).catch(console.warn);
+      supabaseService.upsertHeroStreamItem(newItem).catch((err) =>
+        console.warn('Supabase addHeroStreamItem failed:', err)
+      );
     }
     return newItem;
   }
@@ -302,9 +475,12 @@ class WorkspaceStore {
   public deleteHeroStreamItem(id: string) {
     this.heroStream = this.heroStream.filter((item) => item.id !== id);
     this.persist(STORAGE_KEYS.HERO_STREAM, this.heroStream);
+    this.notify();
 
     if (isSupabaseConfigured) {
-      supabaseService.deleteHeroStreamItem(id).catch(console.warn);
+      supabaseService.deleteHeroStreamItem(id).catch((err) =>
+        console.warn('Supabase deleteHeroStreamItem failed:', err)
+      );
     }
   }
 
@@ -421,6 +597,7 @@ class WorkspaceStore {
     };
     this.lookbook = [newWork, ...this.lookbook];
     this.persist(STORAGE_KEYS.LOOKBOOK, this.lookbook);
+    this.notify();
 
     if (isSupabaseConfigured) {
       supabaseService.insertLookbookWork(work).catch((e) => console.warn('Supabase addLookbookWork failed:', e));
@@ -433,11 +610,19 @@ class WorkspaceStore {
       item.id === id ? { ...item, ...updates } : item
     );
     this.persist(STORAGE_KEYS.LOOKBOOK, this.lookbook);
+    this.notify();
+
+    if (isSupabaseConfigured) {
+      supabaseService.updateLookbookWork(id, updates).catch((e) =>
+        console.warn('Supabase updateLookbookWork failed:', e)
+      );
+    }
   }
 
   public deleteLookbookWork(id: string) {
     this.lookbook = this.lookbook.filter((item) => item.id !== id);
     this.persist(STORAGE_KEYS.LOOKBOOK, this.lookbook);
+    this.notify();
 
     if (isSupabaseConfigured) {
       supabaseService.deleteLookbookWork(id).catch((e) => console.warn('Supabase deleteLookbookWork failed:', e));

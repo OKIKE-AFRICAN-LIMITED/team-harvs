@@ -56,6 +56,7 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
 
   // Modals state
   const [isNewLookOpen, setIsNewLookOpen] = useState(false);
+  const [editingLookWork, setEditingLookWork] = useState<LookbookWork | null>(null);
   const [isNewBriefOpen, setIsNewBriefOpen] = useState(false);
   const [isNewAssetOpen, setIsNewAssetOpen] = useState(false);
   const [selectedApplicant, setSelectedApplicant] = useState<Application | null>(null);
@@ -299,7 +300,14 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
               submissions={submissions}
               activeTab={activeTab}
               onNavigateTab={(tab) => setActiveTab(tab)}
-              onOpenNewLook={() => setIsNewLookOpen(true)}
+              onOpenNewLook={() => {
+                setEditingLookWork(null);
+                setIsNewLookOpen(true);
+              }}
+              onEditLook={(work) => {
+                setEditingLookWork(work);
+                setIsNewLookOpen(true);
+              }}
               onOpenNewBrief={() => setIsNewBriefOpen(true)}
               onOpenNewAsset={() => setIsNewAssetOpen(true)}
               onSelectApplicant={(app) => setSelectedApplicant(app)}
@@ -326,10 +334,14 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
           STUDIO MODALS
           ============================================================== */}
       
-      {/* 1. New Look Modal */}
+      {/* 1. New Look / Edit Look Modal */}
       <NewLookModal
         isOpen={isNewLookOpen}
-        onClose={() => setIsNewLookOpen(false)}
+        editWork={editingLookWork}
+        onClose={() => {
+          setIsNewLookOpen(false);
+          setEditingLookWork(null);
+        }}
       />
 
       {/* 2. New Brief Modal */}

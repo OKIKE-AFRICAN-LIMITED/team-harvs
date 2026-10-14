@@ -33,7 +33,9 @@ import {
   Link2,
   Calendar,
   Mail,
-  Phone
+  Phone,
+  Save,
+  Edit3
 } from 'lucide-react';
 import { 
   Application, 
@@ -64,6 +66,7 @@ export interface AdminDashboardProps {
   onOpenNewAsset: () => void;
   onSelectApplicant: (app: Application) => void;
   onPreviewLook: (work: LookbookWork) => void;
+  onEditLook?: (work: LookbookWork) => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -81,6 +84,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onOpenNewAsset,
   onSelectApplicant,
   onPreviewLook,
+  onEditLook,
 }) => {
   // Existing state
   const [applicantFilter, setApplicantFilter] = useState<'all' | 'Pending' | 'Under Review' | 'On Roster' | 'Archived'>('all');
@@ -96,8 +100,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // HERO STREAM CMS STATE
   const [activeHeroRow, setActiveHeroRow] = useState<1 | 2>(1);
   const [uploadingHeroItemId, setUploadingHeroItemId] = useState<string | null>(null);
+  const [savingHeroItemId, setSavingHeroItemId] = useState<string | null>(null);
+  const [savedHeroItemId, setSavedHeroItemId] = useState<string | null>(null);
   const heroFileInputRef = useRef<HTMLInputElement>(null);
   const [targetHeroItemForUpload, setTargetHeroItemForUpload] = useState<string | null>(null);
+  const [heroTitles, setHeroTitles] = useState<Record<string, string>>({});
 
   // PRODUCTION BRIEF ENGAGEMENT AUDIT STATE
   const [expandedBriefAuditId, setExpandedBriefAuditId] = useState<string | null>(null);
@@ -176,12 +183,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setUploadingHeroItemId(targetHeroItemForUpload);
       const res = await uploadLocalFile(file, 'lookbook');
       workspaceStore.updateHeroStreamItem(targetHeroItemForUpload, { image: res.url });
+      setSavedHeroItemId(targetHeroItemForUpload);
+      setTimeout(() => setSavedHeroItemId(null), 3500);
     } catch (err) {
       console.error('Hero item upload failed:', err);
     } finally {
       setUploadingHeroItemId(null);
       setTargetHeroItemForUpload(null);
+      if (heroFileInputRef.current) heroFileInputRef.current.value = '';
     }
+  };
+
+  // Explicit Save Handler for Hero Card
+  const handleSaveHeroItem = (item: HeroStreamItem) => {
+    setSavingHeroItemId(item.id);
+    const updatedTitle = heroTitles[item.id] !== undefined ? heroTitles[item.id] : item.title;
+    workspaceStore.updateHeroStreamItem(item.id, { title: updatedTitle });
+    setTimeout(() => {
+      setSavingHeroItemId(null);
+      setSavedHeroItemId(item.id);
+      setTimeout(() => setSavedHeroItemId(null), 3500);
+    }, 350);
   };
 
   return (
@@ -723,6 +745,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           const newUrl = prompt('Enter Image URL:', item.image);
                           if (newUrl && newUrl !== item.image) {
                             workspaceStore.updateHeroStreamItem(item.id, { image: newUrl });
+                            setSavedHeroItemId(item.id);
+                            setTimeout(() => setSavedHeroItemId(null), 3500);
                           }
                         }}
                         className="px-3 py-1.5 rounded-lg bg-white/20 text-white text-[0.68rem] font-semibold uppercase tracking-wider flex items-center gap-1 hover:bg-white/30"
@@ -732,47 +756,54 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
-                  {/* Editable Fields */}
+                  {/* Editable Fields: ONLY Look Title */}
                   <div className="space-y-3">
                     <div>
-                      <label className="text-[0.65rem] uppercase tracking-wider text-[#EFCEA5]/70 block mb-1">
-                        Look Title
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[0.65rem] uppercase tracking-wider text-[#EFCEA5]/80 font-semibold block">
+                          Look Title
+                        </label>
+                        {savedHeroItemId === item.id && (
+                          <span className="text-[0.62rem] text-emerald-400 font-bold flex items-center gap-0.5 animate-pulse">
+                            <Check className="w-3 h-3" /> Saved!
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="text"
-                        value={item.title}
-                        onChange={(e) => workspaceStore.updateHeroStreamItem(item.id, { title: e.target.value })}
-                        className="w-full bg-black/40 border border-[#EFCEA5]/20 rounded-lg px-3 py-1.5 text-xs text-[#F8F4EF] focus:outline-none focus:border-[#EFCEA5]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[0.65rem] uppercase tracking-wider text-[#EFCEA5]/70 block mb-1">
-                        Category Subtitle
-                      </label>
-                      <input
-                        type="text"
-                        value={item.category}
-                        onChange={(e) => workspaceStore.updateHeroStreamItem(item.id, { category: e.target.value })}
-                        className="w-full bg-black/40 border border-[#EFCEA5]/20 rounded-lg px-3 py-1.5 text-xs text-[#F8F4EF] focus:outline-none focus:border-[#EFCEA5]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[0.65rem] uppercase tracking-wider text-[#EFCEA5]/70 block mb-1">
-                        Look Tag Badge
-                      </label>
-                      <input
-                        type="text"
-                        value={item.tag}
-                        onChange={(e) => workspaceStore.updateHeroStreamItem(item.id, { tag: e.target.value })}
-                        className="w-full bg-black/40 border border-[#EFCEA5]/20 rounded-lg px-3 py-1.5 text-xs text-[#F8F4EF] focus:outline-none focus:border-[#EFCEA5]"
+                        value={heroTitles[item.id] !== undefined ? heroTitles[item.id] : item.title}
+                        onChange={(e) => setHeroTitles((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                        placeholder="e.g. Solitude in Crimson"
+                        className="w-full bg-black/40 border border-[#EFCEA5]/20 rounded-lg px-3 py-2 text-xs text-[#F8F4EF] focus:outline-none focus:border-[#EFCEA5]"
                       />
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-[#EFCEA5]/10 flex items-center justify-between">
-                    <span className="text-[0.65rem] text-[#EFCEA5]/50">Row {item.rowNumber}</span>
+                  <div className="pt-3 border-t border-[#EFCEA5]/10 flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => handleSaveHeroItem(item)}
+                      disabled={savingHeroItemId === item.id}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                        savedHeroItemId === item.id
+                          ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20'
+                          : 'bg-[#EFCEA5] text-[#1F0205] hover:bg-white shadow'
+                      }`}
+                    >
+                      {savingHeroItemId === item.id ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" /> Saving...
+                        </>
+                      ) : savedHeroItemId === item.id ? (
+                        <>
+                          <Check className="w-3 h-3" /> Saved
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-3 h-3" /> Save Look
+                        </>
+                      )}
+                    </button>
+
                     <button
                       onClick={() => {
                         if (window.confirm(`Remove look "${item.title}" from hero marquee?`)) {
@@ -780,6 +811,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         }
                       }}
                       className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 transition-colors"
+                      title="Remove from Hero"
                     >
                       <Trash2 className="w-3.5 h-3.5" /> Remove
                     </button>
@@ -871,12 +903,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <p className="text-xs text-[#EFCEA5]/60">{work.category}</p>
 
                     <div className="pt-3 border-t border-[#EFCEA5]/10 flex items-center justify-between text-xs">
-                      <button
-                        onClick={() => onPreviewLook(work)}
-                        className="text-[#EFCEA5] hover:underline flex items-center gap-1"
-                      >
-                        <Eye className="w-3.5 h-3.5" /> Inspect
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => onPreviewLook(work)}
+                          className="text-[#EFCEA5] hover:underline flex items-center gap-1"
+                        >
+                          <Eye className="w-3.5 h-3.5" /> Inspect
+                        </button>
+                        <button
+                          onClick={() => onEditLook?.(work)}
+                          className="px-2.5 py-1 rounded-lg bg-[#EFCEA5]/15 text-[#EFCEA5] hover:bg-[#EFCEA5] hover:text-[#1F0205] flex items-center gap-1 font-semibold uppercase tracking-wider text-[0.62rem] transition-all"
+                        >
+                          <Edit3 className="w-3 h-3" /> Edit
+                        </button>
+                      </div>
                       <button
                         onClick={() => {
                           if (window.confirm(`Delete look "${work.title}" from archive?`)) {

@@ -28,6 +28,38 @@ export const NewLookModal: React.FC<NewLookModalProps> = ({ isOpen, onClose, edi
   const [uploadSuccessName, setUploadSuccessName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  React.useEffect(() => {
+    if (editWork) {
+      setFormData({
+        title: editWork.title || '',
+        category: editWork.category || 'Fashion & Tailoring',
+        tag: editWork.tag || 'Look // Autumn',
+        image: editWork.image || '/assets/images/editorial_hero.jpg',
+        discipline: editWork.discipline || 'Models',
+        featured: editWork.featured ?? true,
+        photographer: editWork.photographer || 'Studio Harvs Camera',
+        stylist: editWork.stylist || 'Aniekeme Bassey',
+        model: editWork.model || '',
+        description: editWork.description || '',
+      });
+      setUploadSuccessName(null);
+    } else {
+      setFormData({
+        title: '',
+        category: 'Fashion & Tailoring',
+        tag: 'Look // Autumn',
+        image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=80',
+        discipline: 'Models',
+        featured: true,
+        photographer: 'Studio Harvs Camera',
+        stylist: 'Aniekeme Bassey',
+        model: '',
+        description: '',
+      });
+      setUploadSuccessName(null);
+    }
+  }, [editWork, isOpen]);
+
   if (!isOpen) return null;
 
   const handleDeviceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

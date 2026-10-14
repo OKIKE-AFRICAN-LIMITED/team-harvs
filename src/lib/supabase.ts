@@ -289,6 +289,25 @@ export const supabaseService = {
     return data as LookbookWork;
   },
 
+  async updateLookbookWork(id: string, updates: Partial<LookbookWork>): Promise<LookbookWork | null> {
+    if (!isSupabaseConfigured) return null;
+    const payload: any = { ...updates };
+    delete payload.id;
+    delete payload.date;
+    const { data, error } = await supabase
+      .from('lookbook_works')
+      .update(payload)
+      .eq('id', id)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.error('Supabase updateLookbookWork error:', error);
+      return null;
+    }
+    return data as LookbookWork;
+  },
+
   async deleteLookbookWork(id: string): Promise<boolean> {
     if (!isSupabaseConfigured) return false;
     const { error } = await supabase.from('lookbook_works').delete().eq('id', id);
@@ -533,27 +552,27 @@ export const supabaseService = {
     if (!isSupabaseConfigured) return null;
     const payload: any = {
       id: item.id,
-      title: item.title,
-      category: item.category,
-      tag: item.tag,
+      title: item.title || 'Editorial Look',
+      category: item.category || 'High-Fashion Editorial',
+      tag: item.tag || 'Look // Harvs',
       image: item.image,
-      row_number: item.rowNumber,
-      order_index: item.orderIndex,
-      updated_at: new Date().toISOString(),
+      row_number: item.rowNumber || 1,
+      order_index: item.orderIndex || 0,
     };
     // remove undefined keys
     Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
 
     const { data, error } = await supabase
       .from('hero_stream_items')
-      .upsert([payload])
+      .upsert([payload], { onConflict: 'id' })
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Supabase upsertHeroStreamItem error:', error);
       return null;
     }
+    if (!data) return null;
     return {
       id: data.id,
       title: data.title,
