@@ -486,6 +486,7 @@ export const supabaseService = {
       notes: row.notes,
       date: row.created_at ? new Date(row.created_at).toLocaleDateString() : 'Recent',
       status: row.status,
+      adminFeedback: row.admin_feedback || undefined,
     }));
   },
 
@@ -548,6 +549,12 @@ export const supabaseService = {
       .from('member_submissions')
       .update(updates)
       .eq('id', id);
+    return !error;
+  },
+
+  async deleteSubmission(id: string): Promise<boolean> {
+    if (!isSupabaseConfigured) return false;
+    const { error } = await supabase.from('member_submissions').delete().eq('id', id);
     return !error;
   },
 

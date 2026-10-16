@@ -54,6 +54,7 @@ import {
 import type { Profile } from '@/lib/supabase';
 import { uploadLocalFile } from '@/lib/fileUpload';
 import { repairEmbeddedMedia, type RepairProgress } from '@/lib/mediaRepair';
+import { DeliverableReviewModal } from './DeliverableReviewModal';
 
 export interface AdminDashboardProps {
   users?: Profile[];
@@ -137,6 +138,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // DELIVERABLES QA REVIEW STATE
   const [submissionSearch, setSubmissionSearch] = useState('');
   const [submissionStatusFilter, setSubmissionStatusFilter] = useState<'all' | 'Submitted' | 'Approved' | 'Revision Requested'>('all');
+  const [selectedSubmission, setSelectedSubmission] = useState<MemberSubmission | null>(null);
 
   const pendingApps = applications.filter((a) => a.status === 'Pending');
   const rosterMembers = applications.filter((a) => a.status === 'On Roster');
@@ -507,10 +509,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {submissions.slice(0, 4).map((sub) => (
-                  <div key={sub.id} className="p-4 rounded-xl bg-black/40 border border-[#EFCEA5]/10 space-y-2.5">
+                  <div 
+                    key={sub.id} 
+                    onClick={() => setSelectedSubmission(sub)}
+                    className="p-4 rounded-xl bg-black/40 border border-[#EFCEA5]/10 space-y-2.5 hover:border-[#EFCEA5]/40 hover:bg-black/60 transition-all cursor-pointer group"
+                    title="Click to inspect deliverable details"
+                  >
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <span className="text-xs font-serif text-[#F8F4EF] font-medium block">{sub.briefTitle}</span>
+                        <span className="text-xs font-serif text-[#F8F4EF] font-medium block group-hover:text-[#EFCEA5] transition-colors">{sub.briefTitle}</span>
                         <span className="text-[0.68rem] text-[#EFCEA5]/70 block mt-0.5">
                           Submitted by <strong className="text-[#EFCEA5]">{sub.memberName}</strong> ({sub.role})
                         </span>
@@ -525,7 +532,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
 
                     {sub.notes && (
-                      <p className="text-xs text-[#F8F4EF]/80 italic bg-[#1C0306]/50 p-2.5 rounded-lg border border-[#EFCEA5]/5">
+                      <p className="text-xs text-[#F8F4EF]/80 italic bg-[#1C0306]/50 p-2.5 rounded-lg border border-[#EFCEA5]/5 line-clamp-2">
                         &ldquo;{sub.notes}&rdquo;
                       </p>
                     )}
@@ -533,26 +540,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div className="flex items-center justify-between pt-2 border-t border-[#EFCEA5]/10 text-xs">
                       <span className="text-[0.65rem] text-[#EFCEA5]/50">{sub.date}</span>
                       <div className="flex items-center gap-2">
-                        {sub.pdfUrl && (
-                          <a
-                            href={sub.pdfUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="px-2 py-1 rounded bg-[#EFCEA5]/10 text-[#EFCEA5] hover:bg-[#EFCEA5]/20 text-[0.68rem] font-semibold flex items-center gap-1 transition-colors"
-                          >
-                            <FileText className="w-3 h-3 text-red-400" /> View PDF
-                          </a>
-                        )}
-                        {sub.link && (
-                          <a
-                            href={sub.link}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="px-2 py-1 rounded bg-white/5 text-[#EFCEA5] hover:bg-white/10 text-[0.68rem] font-semibold flex items-center gap-1 transition-colors"
-                          >
-                            <ExternalLink className="w-3 h-3" /> Drive / Link
-                          </a>
-                        )}
+                        <span className="text-[0.68rem] text-[#EFCEA5] group-hover:underline flex items-center gap-1 font-semibold">
+                          <Eye className="w-3 h-3 text-[#EFCEA5]" /> Inspect Details &rarr;
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -920,7 +910,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 >
                   {/* Thumbnail with Device Upload Button */}
                   <div className="relative aspect-[16/10] bg-black rounded-xl overflow-hidden group">
-                    <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                    <img 
+                      src={item.image || '/assets/images/editorial_hero.jpg'} 
+                      alt={item.title} 
+                      className="w-full h-full object-cover" 
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = '/assets/images/editorial_hero.jpg';
+                      }}
+                    />
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-3">
                       <button
                         onClick={() => {
@@ -1093,9 +1091,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </>
                     ) : (
                       <img 
-                        src={work.image} 
+                        src={work.image || '/assets/images/editorial_hero.jpg'} 
                         alt={work.title} 
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = '/assets/images/editorial_hero.jpg';
+                        }}
                       />
                     )}
                     <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
@@ -1515,11 +1517,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           ) : (
             <div className="space-y-4">
               {filteredSubmissions.map((sub) => (
-                <div key={sub.id} className="p-6 bg-[#170204] border border-[#EFCEA5]/15 rounded-2xl space-y-4 transition-all hover:border-[#EFCEA5]/30">
+                <div 
+                  key={sub.id} 
+                  onClick={() => setSelectedSubmission(sub)}
+                  className="p-6 bg-[#170204] border border-[#EFCEA5]/15 rounded-2xl space-y-4 transition-all hover:border-[#EFCEA5]/40 hover:bg-[#1C0306] cursor-pointer group"
+                  title="Click to inspect student deliverable details"
+                >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#EFCEA5]/10">
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="text-base font-serif text-[#F8F4EF] font-medium">{sub.briefTitle}</h3>
+                        <h3 className="text-base font-serif text-[#F8F4EF] font-medium group-hover:text-[#EFCEA5] transition-colors">{sub.briefTitle}</h3>
                         <span className="text-[0.62rem] px-2 py-0.5 rounded-full bg-[#EFCEA5]/10 text-[#EFCEA5] uppercase font-semibold">
                           {sub.role}
                         </span>
@@ -1554,30 +1561,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
                     {/* Media & Asset Links */}
                     <div className="flex items-center gap-2.5 flex-wrap">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedSubmission(sub);
+                        }}
+                        className="px-4 py-2 rounded-xl bg-[#EFCEA5] text-[#1F0205] text-xs font-semibold flex items-center gap-1.5 hover:bg-white transition-colors shadow-sm"
+                      >
+                        <Eye className="w-3.5 h-3.5" /> Inspect Details &amp; Review
+                      </button>
+
                       {sub.pdfUrl && (
-                        <a
-                          href={sub.pdfUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-3.5 py-1.5 rounded-xl bg-[#EFCEA5]/10 text-[#EFCEA5] hover:bg-[#EFCEA5]/20 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-[#EFCEA5]/20"
-                        >
-                          <FileText className="w-3.5 h-3.5 text-red-400" /> Open PDF Deliverable
-                        </a>
+                        <span className="px-3 py-1.5 rounded-xl bg-[#EFCEA5]/10 text-[#EFCEA5] text-xs font-semibold flex items-center gap-1.5 border border-[#EFCEA5]/20">
+                          <FileText className="w-3.5 h-3.5 text-red-400" /> Attached PDF
+                        </span>
                       )}
                       {sub.link && (
-                        <a
-                          href={sub.link}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-3.5 py-1.5 rounded-xl bg-white/5 text-[#EFCEA5] hover:bg-white/10 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-[#EFCEA5]/10"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" /> Open Drive / Assets
-                        </a>
+                        <span className="px-3 py-1.5 rounded-xl bg-white/5 text-[#EFCEA5] text-xs font-semibold flex items-center gap-1.5 border border-[#EFCEA5]/10">
+                          <ExternalLink className="w-3.5 h-3.5" /> Attached Link
+                        </span>
                       )}
                     </div>
 
-                    {/* QA Actions */}
-                    <div className="flex items-center gap-2 shrink-0">
+                    {/* Quick QA Actions */}
+                    <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                       {sub.status !== 'Approved' && (
                         <button
                           onClick={() => workspaceStore.updateSubmissionStatus(sub.id, 'Approved')}
@@ -1590,7 +1597,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <button
                           onClick={() => {
                             const feedback = prompt('Enter revision feedback for member:');
-                            workspaceStore.updateSubmissionStatus(sub.id, 'Revision Requested', feedback || undefined);
+                            if (feedback) {
+                              workspaceStore.updateSubmissionStatus(sub.id, 'Revision Requested', feedback);
+                            }
                           }}
                           className="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 text-xs font-semibold uppercase tracking-wider flex items-center gap-1 transition-colors border border-amber-500/30"
                         >
@@ -1660,6 +1669,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           )}
         </div>
       )}
+
+      {/* Student Deliverable QA Review Modal */}
+      <DeliverableReviewModal
+        submission={selectedSubmission}
+        isOpen={Boolean(selectedSubmission)}
+        onClose={() => setSelectedSubmission(null)}
+        briefs={briefs}
+      />
 
     </div>
   );

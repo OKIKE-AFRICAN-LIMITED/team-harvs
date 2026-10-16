@@ -91,6 +91,7 @@ export interface MemberSubmission {
   notes: string;
   date: string;
   status: 'Submitted' | 'Approved' | 'Revision Requested';
+  adminFeedback?: string;
 }
 
 export interface HeroStreamItem {
@@ -778,11 +779,22 @@ class WorkspaceStore {
   }
 
   public updateSubmissionStatus(id: string, status: MemberSubmission['status'], feedback?: string) {
-    this.submissions = this.submissions.map((s) => (s.id === id ? { ...s, status } : s));
+    this.submissions = this.submissions.map((s) =>
+      s.id === id ? { ...s, status, adminFeedback: feedback !== undefined ? feedback : s.adminFeedback } : s
+    );
     this.persist(STORAGE_KEYS.SUBMISSIONS, this.submissions);
 
     if (isSupabaseConfigured) {
       supabaseService.updateSubmissionStatus(id, status, feedback).catch((e) => console.warn('Supabase updateSubmissionStatus failed:', e));
+    }
+  }
+
+  public deleteSubmission(id: string) {
+    this.submissions = this.submissions.filter((s) => s.id !== id);
+    this.persist(STORAGE_KEYS.SUBMISSIONS, this.submissions);
+
+    if (isSupabaseConfigured) {
+      supabaseService.deleteSubmission(id).catch((e) => console.warn('Supabase deleteSubmission failed:', e));
     }
   }
 

@@ -396,9 +396,13 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
                 />
               ) : (
                 <img 
-                  src={previewLookWork.image} 
+                  src={previewLookWork.image || '/assets/images/editorial_hero.jpg'} 
                   alt={previewLookWork.title} 
                   className="w-full h-full object-cover" 
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = '/assets/images/editorial_hero.jpg';
+                  }}
                 />
               )}
               <button

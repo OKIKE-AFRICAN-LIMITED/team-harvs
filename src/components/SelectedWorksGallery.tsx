@@ -193,10 +193,14 @@ export const SelectedWorksGallery: React.FC<SelectedWorksGalleryProps> = ({
                     </>
                   ) : (
                     <img
-                      src={item.image}
+                      src={item.image || '/assets/images/editorial_hero.jpg'}
                       alt={item.title}
                       className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                       loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = '/assets/images/editorial_hero.jpg';
+                      }}
                     />
                   )}
                 </div>

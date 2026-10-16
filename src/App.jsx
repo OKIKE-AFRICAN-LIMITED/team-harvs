@@ -533,7 +533,15 @@ export default function App() {
                         onClick={() => setSelectedPreviewImage(item)}
                         title="Click to inspect look"
                       >
-                        <img src={item.image} alt={item.title} className="stream-card-img" />
+                        <img 
+                          src={item.image || '/assets/images/editorial_hero.jpg'} 
+                          alt={item.title} 
+                          className="stream-card-img"
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = '/assets/images/editorial_hero.jpg';
+                          }}
+                        />
                         <div className="stream-card-info">
                           <span className="stream-card-title">{item.title}</span>
                         </div>
@@ -552,7 +560,15 @@ export default function App() {
                         onClick={() => setSelectedPreviewImage(item)}
                         title="Click to inspect look"
                       >
-                        <img src={item.image} alt={item.title} className="stream-card-img" />
+                        <img 
+                          src={item.image || '/assets/images/editorial_hero.jpg'} 
+                          alt={item.title} 
+                          className="stream-card-img"
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = '/assets/images/editorial_hero.jpg';
+                          }}
+                        />
                         <div className="stream-card-info">
                           <span className="stream-card-title">{item.title}</span>
                         </div>
@@ -841,7 +857,14 @@ export default function App() {
                   style={{ width: '100%', maxHeight: '72vh', borderRadius: '12px', background: '#000', objectFit: 'contain' }}
                 />
               ) : (
-                <img src={selectedPreviewImage.image} alt={selectedPreviewImage.title} />
+                <img 
+                  src={selectedPreviewImage.image || '/assets/images/editorial_hero.jpg'} 
+                  alt={selectedPreviewImage.title}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = '/assets/images/editorial_hero.jpg';
+                  }}
+                />
               )}
             </div>
             <div className="preview-modal-info">
