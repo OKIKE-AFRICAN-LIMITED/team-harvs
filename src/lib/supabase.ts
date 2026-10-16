@@ -652,7 +652,7 @@ export const supabaseService = {
   // --- Brief Interactions (Clicked vs Submitted Engagement Audit) ---
   async getBriefInteractions(briefId?: string): Promise<BriefInteraction[] | null> {
     if (!isSupabaseConfigured) return null;
-    let query = supabase.from('brief_interactions').select('*').order('created_at', { ascending: false });
+    let query = supabase.from('brief_interactions').select('*').order('viewed_at', { ascending: false });
     if (briefId) {
       query = query.eq('brief_id', briefId);
     }

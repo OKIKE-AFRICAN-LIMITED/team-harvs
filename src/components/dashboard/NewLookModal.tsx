@@ -93,8 +93,9 @@ export const NewLookModal: React.FC<NewLookModalProps> = ({ isOpen, onClose, edi
         }));
       }
       setUploadSuccessName(file.name);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Look media upload failed:', err);
+      window.alert(err?.message || 'Upload failed. Please try again.');
     } finally {
       setIsUploading(false);
     }

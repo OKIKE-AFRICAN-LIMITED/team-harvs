@@ -36,7 +36,8 @@ import {
   Phone,
   Save,
   Edit3,
-  Video
+  Video,
+  RefreshCw
 } from 'lucide-react';
 import { 
   Application, 
@@ -52,6 +53,7 @@ import {
 } from '@/lib/workspaceStore';
 import type { Profile } from '@/lib/supabase';
 import { uploadLocalFile } from '@/lib/fileUpload';
+import { repairEmbeddedMedia, type RepairProgress } from '@/lib/mediaRepair';
 
 export interface AdminDashboardProps {
   users?: Profile[];
@@ -107,6 +109,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const heroFileInputRef = useRef<HTMLInputElement>(null);
   const [targetHeroItemForUpload, setTargetHeroItemForUpload] = useState<string | null>(null);
   const [heroTitles, setHeroTitles] = useState<Record<string, string>>({});
+  const [heroError, setHeroError] = useState<string | null>(null);
+  const [repairState, setRepairState] = useState<RepairProgress | null>(null);
+  const [isRepairing, setIsRepairing] = useState(false);
+
+  const heroNeedsRepair =
+    workspaceStore.getSyncState().failedSections.includes('hero stream') ||
+    heroStream.some((i) => (i.image || '').startsWith('data:'));
+
+  const handleRepairMedia = async () => {
+    setIsRepairing(true);
+    setHeroError(null);
+    try {
+      const result = await repairEmbeddedMedia((p) => setRepairState(p));
+      setRepairState(result);
+      await workspaceStore.syncFromSupabase();
+    } catch (err: any) {
+      setHeroError(err?.message || 'Repair failed.');
+    } finally {
+      setIsRepairing(false);
+    }
+  };
 
   // PRODUCTION BRIEF ENGAGEMENT AUDIT STATE
   const [expandedBriefAuditId, setExpandedBriefAuditId] = useState<string | null>(null);
@@ -192,19 +215,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const flashSaved = (id: string) => {
+    setSavedHeroItemId(id);
+    setTimeout(() => setSavedHeroItemId(null), 3500);
+  };
+
   // Hero Item Device Upload Handler
   const handleHeroItemUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !targetHeroItemForUpload) return;
+    const targetId = targetHeroItemForUpload;
+    if (!file || !targetId) return;
 
+    setHeroError(null);
     try {
-      setUploadingHeroItemId(targetHeroItemForUpload);
+      setUploadingHeroItemId(targetId);
       const res = await uploadLocalFile(file, 'lookbook');
-      workspaceStore.updateHeroStreamItem(targetHeroItemForUpload, { image: res.url });
-      setSavedHeroItemId(targetHeroItemForUpload);
-      setTimeout(() => setSavedHeroItemId(null), 3500);
-    } catch (err) {
+      const result = await workspaceStore.updateHeroStreamItem(targetId, { image: res.url });
+      if (!result.ok) throw new Error(result.error);
+      flashSaved(targetId);
+    } catch (err: any) {
       console.error('Hero item upload failed:', err);
+      setHeroError(err?.message || 'Upload failed. Please try again.');
     } finally {
       setUploadingHeroItemId(null);
       setTargetHeroItemForUpload(null);
@@ -213,15 +244,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   // Explicit Save Handler for Hero Card
-  const handleSaveHeroItem = (item: HeroStreamItem) => {
+  const handleSaveHeroItem = async (item: HeroStreamItem) => {
+    setHeroError(null);
     setSavingHeroItemId(item.id);
     const updatedTitle = heroTitles[item.id] !== undefined ? heroTitles[item.id] : item.title;
-    workspaceStore.updateHeroStreamItem(item.id, { title: updatedTitle });
-    setTimeout(() => {
-      setSavingHeroItemId(null);
-      setSavedHeroItemId(item.id);
-      setTimeout(() => setSavedHeroItemId(null), 3500);
-    }, 350);
+    const result = await workspaceStore.updateHeroStreamItem(item.id, { title: updatedTitle });
+    setSavingHeroItemId(null);
+    if (result.ok) {
+      flashSaved(item.id);
+    } else {
+      setHeroError(result.error || 'Could not save this look.');
+    }
   };
 
   return (
@@ -558,6 +591,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="px-3.5 py-1.5 rounded-xl bg-black/40 border border-[#EFCEA5]/15 text-xs text-[#EFCEA5]/80">
                 Members: <strong className="text-emerald-300">{users.filter((u) => u.role === 'member').length}</strong>
               </div>
+              <button
+                id="refresh-users-btn"
+                onClick={() => workspaceStore.syncFromSupabase()}
+                disabled={workspaceStore.getSyncState().isSyncing}
+                className="px-3.5 py-1.5 rounded-xl bg-[#EFCEA5] text-[#1F0205] text-xs font-semibold flex items-center gap-1.5 hover:bg-white transition-colors disabled:opacity-60"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${workspaceStore.getSyncState().isSyncing ? 'animate-spin' : ''}`} />
+                {workspaceStore.getSyncState().isSyncing ? 'Refreshing…' : 'Refresh'}
+              </button>
             </div>
           </div>
 
@@ -612,7 +654,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
 
           {/* User Table / List */}
-          {filteredUsers.length === 0 ? (
+          {filteredUsers.length === 0 && users.length === 0 && workspaceStore.getSyncState().isSyncing ? (
+            <div className="p-16 text-center rounded-3xl bg-[#170204] border border-[#EFCEA5]/15 space-y-3">
+              <Loader2 className="w-8 h-8 text-[#EFCEA5]/60 mx-auto animate-spin" />
+              <h3 className="text-lg font-serif text-[#F8F4EF]">Loading users…</h3>
+            </div>
+          ) : filteredUsers.length === 0 ? (
             <div className="p-16 text-center rounded-3xl bg-[#170204] border border-[#EFCEA5]/15 space-y-3">
               <Users className="w-8 h-8 text-[#EFCEA5]/40 mx-auto" />
               <h3 className="text-lg font-serif text-[#F8F4EF]">No Registered Users Found</h3>
@@ -621,6 +668,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   ? 'No registered profiles matched your current filters. Try resetting search parameters.'
                   : 'No users have registered on the platform yet. New user signups will appear here automatically.'}
               </p>
+              {(userSearch || userRoleFilter !== 'all' || userStatusFilter !== 'all' || userDisciplineFilter !== 'all') && (
+                <button
+                  onClick={() => {
+                    setUserSearch('');
+                    setUserRoleFilter('all');
+                    setUserStatusFilter('all');
+                    setUserDisciplineFilter('all');
+                  }}
+                  className="mt-2 px-4 py-2 rounded-xl text-xs font-semibold bg-[#EFCEA5] text-[#1F0205]"
+                >
+                  Clear filters
+                </button>
+              )}
             </div>
           ) : (
             <div className="bg-[#170204] border border-[#EFCEA5]/15 rounded-2xl overflow-hidden divide-y divide-[#EFCEA5]/10">
@@ -814,6 +874,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </button>
           </div>
 
+          {(heroNeedsRepair || repairState) && (
+            <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-400/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs text-amber-100">
+              <div className="space-y-1">
+                <strong className="text-amber-300 text-sm block">
+                  {repairState && !isRepairing ? 'Image repair' : 'Your hero images need a one-time fix'}
+                </strong>
+                <span className="block text-amber-100/80">
+                  {repairState
+                    ? repairState.message
+                    : 'Earlier uploads were saved in a way that is too large for the website to load, so your changes weren’t showing. Click the button to fix them automatically — no re-uploading needed.'}
+                </span>
+              </div>
+              {(!repairState || isRepairing || repairState.failed > 0) && (
+                <button
+                  id="repair-hero-images-btn"
+                  onClick={handleRepairMedia}
+                  disabled={isRepairing}
+                  className="px-4 py-2.5 rounded-xl bg-amber-300 text-[#1F0205] font-bold uppercase tracking-wider flex items-center gap-2 shrink-0 hover:bg-white transition-colors disabled:opacity-70"
+                >
+                  {isRepairing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  {isRepairing ? 'Fixing…' : repairState?.failed ? 'Try again' : 'Fix my images'}
+                </button>
+              )}
+            </div>
+          )}
+
+          {heroError && (
+            <div role="alert" className="p-4 rounded-2xl bg-rose-500/10 border border-rose-400/30 flex items-start justify-between gap-3 text-xs text-rose-200">
+              <span><strong className="text-rose-300">Not saved.</strong> {heroError}</span>
+              <button onClick={() => setHeroError(null)} className="text-rose-300 hover:text-white shrink-0" aria-label="Dismiss error">
+                Dismiss
+              </button>
+            </div>
+          )}
+
           {/* Cards for active hero row */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {heroStream
@@ -839,11 +934,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </button>
                       <button
                         onClick={() => {
-                          const newUrl = prompt('Enter Image URL:', item.image);
+                          const newUrl = prompt('Enter Image URL:', item.image.startsWith('data:') ? '' : item.image);
                           if (newUrl && newUrl !== item.image) {
-                            workspaceStore.updateHeroStreamItem(item.id, { image: newUrl });
-                            setSavedHeroItemId(item.id);
-                            setTimeout(() => setSavedHeroItemId(null), 3500);
+                            setHeroError(null);
+                            workspaceStore.updateHeroStreamItem(item.id, { image: newUrl }).then((r) => {
+                              if (r.ok) flashSaved(item.id);
+                              else setHeroError(r.error || 'Could not save the new image URL.');
+                            });
                           }
                         }}
                         className="px-3 py-1.5 rounded-lg bg-white/20 text-white text-[0.68rem] font-semibold uppercase tracking-wider flex items-center gap-1 hover:bg-white/30"

@@ -60,8 +60,9 @@ export const SubmitDeliverableModal: React.FC<SubmitDeliverableModalProps> = ({
       if (!link) {
         setLink(res.url);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('PDF upload failed:', err);
+      window.alert(err?.message || 'Upload failed. Please try again.');
     } finally {
       setIsUploading(false);
     }

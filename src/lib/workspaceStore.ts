@@ -319,88 +319,120 @@ class WorkspaceStore {
   private users: Profile[] = [];
   private listeners: Set<() => void> = new Set();
 
+  private syncInFlight: Promise<void> | null = null;
+  private lastSyncError: string | null = null;
+  private isSyncing = false;
+  private failedSections: Set<string> = new Set();
+
   constructor() {
     this.loadFromStorage();
     if (typeof window !== 'undefined') {
       this.syncFromSupabase();
+      // Refresh when the admin comes back to the tab so the dashboard never looks stale
+      window.addEventListener('focus', () => this.syncFromSupabase());
     }
   }
 
-  public async syncFromSupabase() {
-    if (!isSupabaseConfigured) return;
+  /** Cache to localStorage without ever throwing (quota errors used to abort the whole sync). */
+  private safeCache(key: string, data: any) {
     try {
-      const [apps, lb, briefs, ast, sub, hero, users, interactions] = await Promise.all([
-        supabaseService.getApplications(),
-        supabaseService.getLookbook(),
-        supabaseService.getBriefs(),
-        supabaseService.getAssets(),
-        supabaseService.getSubmissions(),
-        supabaseService.getHeroStream(),
-        supabaseService.getProfiles(),
-        supabaseService.getBriefInteractions(),
-      ]);
+      const json = JSON.stringify(data);
+      // Never cache multi-MB payloads (e.g. embedded base64 media) — it fills the 5 MB quota
+      if (json.length > 1_500_000) {
+        localStorage.removeItem(key);
+        return;
+      }
+      localStorage.setItem(key, json);
+    } catch {
+      try { localStorage.removeItem(key); } catch {}
+    }
+  }
 
-      let changed = false;
-      if (apps !== null) {
+  public getSyncState() {
+    return { isSyncing: this.isSyncing, lastError: this.lastSyncError, failedSections: [...this.failedSections] };
+  }
+
+  /**
+   * Pulls every table from Supabase. Each table is applied INDEPENDENTLY as soon as it
+   * arrives, so one slow/broken table (e.g. the hero stream) can no longer block or
+   * wipe out the others (this is why User Management used to show 0 users).
+   */
+  public syncFromSupabase(): Promise<void> {
+    if (!isSupabaseConfigured) return Promise.resolve();
+    if (this.syncInFlight) return this.syncInFlight;
+
+    this.isSyncing = true;
+    this.lastSyncError = null;
+    this.notify();
+
+    const apply = <T,>(label: string, p: Promise<T | null>, onData: (data: T) => void) =>
+      p.then((data) => {
+        if (data !== null && data !== undefined) {
+          this.failedSections.delete(label);
+          onData(data);
+          this.notify();
+        } else {
+          this.failedSections.add(label);
+        }
+      }).catch((err) => {
+        console.warn(`Supabase sync (${label}) failed:`, err);
+        this.failedSections.add(label);
+        this.lastSyncError = `Couldn't load ${label}.`;
+      });
+
+    const tasks = [
+      apply('users', supabaseService.getProfiles(), (users) => {
+        this.users = users;
+        this.safeCache(STORAGE_KEYS.USERS, this.users);
+      }),
+      apply('applications', supabaseService.getApplications(), (apps) => {
         this.applications = apps;
-        localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(this.applications));
-        changed = true;
-      }
-      if (lb !== null && lb.length > 0) {
-        this.lookbook = lb;
-        localStorage.setItem(STORAGE_KEYS.LOOKBOOK, JSON.stringify(this.lookbook));
-        changed = true;
-      } else if (this.lookbook.length === 0) {
-        this.lookbook = DEFAULT_LOOKBOOK;
-        localStorage.setItem(STORAGE_KEYS.LOOKBOOK, JSON.stringify(this.lookbook));
-        changed = true;
-      }
-
-      // If Supabase lookbook table is empty, auto-seed with current lookbook items so they exist in database
-      if (lb !== null && lb.length === 0 && this.lookbook.length > 0) {
-        this.lookbook.forEach((item) => {
-          supabaseService.upsertLookbookWork(item).catch(() => {});
-        });
-      }
-      if (briefs !== null) {
+        this.safeCache(STORAGE_KEYS.APPLICATIONS, this.applications);
+      }),
+      apply('lookbook', supabaseService.getLookbook(), (lb) => {
+        if (lb.length > 0) {
+          this.lookbook = lb;
+        } else {
+          if (this.lookbook.length === 0) this.lookbook = DEFAULT_LOOKBOOK;
+          // Supabase lookbook table is empty: seed it so items exist in the database
+          this.lookbook.forEach((item) => {
+            supabaseService.upsertLookbookWork(item).catch(() => {});
+          });
+        }
+        this.safeCache(STORAGE_KEYS.LOOKBOOK, this.lookbook);
+      }),
+      apply('briefs', supabaseService.getBriefs(), (briefs) => {
         this.briefs = briefs;
-        localStorage.setItem(STORAGE_KEYS.BRIEFS, JSON.stringify(this.briefs));
-        changed = true;
-      }
-      if (ast !== null) {
+        this.safeCache(STORAGE_KEYS.BRIEFS, this.briefs);
+      }),
+      apply('assets', supabaseService.getAssets(), (ast) => {
         this.assets = ast;
-        localStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(this.assets));
-        changed = true;
-      }
-      if (sub !== null) {
+        this.safeCache(STORAGE_KEYS.ASSETS, this.assets);
+      }),
+      apply('submissions', supabaseService.getSubmissions(), (sub) => {
         const remoteIds = new Set(sub.map((s) => s.id));
         const unsynced = this.submissions.filter((s) => !remoteIds.has(s.id));
         this.submissions = [...sub, ...unsynced];
-        localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(this.submissions));
-        changed = true;
-      }
-      if (hero !== null && hero.length > 0) {
-        this.heroStream = hero;
-        localStorage.setItem(STORAGE_KEYS.HERO_STREAM, JSON.stringify(this.heroStream));
-        changed = true;
-      }
-      if (users !== null) {
-        this.users = users;
-        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(this.users));
-        changed = true;
-      }
-      if (interactions !== null) {
+        this.safeCache(STORAGE_KEYS.SUBMISSIONS, this.submissions);
+      }),
+      apply('hero stream', supabaseService.getHeroStream(), (hero) => {
+        if (hero.length > 0) {
+          this.heroStream = hero;
+          this.safeCache(STORAGE_KEYS.HERO_STREAM, this.heroStream);
+        }
+      }),
+      apply('brief activity', supabaseService.getBriefInteractions(), (interactions) => {
         this.briefInteractions = interactions;
-        localStorage.setItem(STORAGE_KEYS.BRIEF_INTERACTIONS, JSON.stringify(this.briefInteractions));
-        changed = true;
-      }
+        this.safeCache(STORAGE_KEYS.BRIEF_INTERACTIONS, this.briefInteractions);
+      }),
+    ];
 
-      if (changed) {
-        this.notify();
-      }
-    } catch (err) {
-      console.warn('Supabase store sync error:', err);
-    }
+    this.syncInFlight = Promise.all(tasks).then(() => {
+      this.isSyncing = false;
+      this.syncInFlight = null;
+      this.notify();
+    });
+    return this.syncInFlight;
   }
 
   private loadFromStorage() {
@@ -469,7 +501,8 @@ class WorkspaceStore {
     return this.heroStream.filter((item) => item.rowNumber === rowNumber);
   }
 
-  public updateHeroStreamItem(id: string, updates: Partial<HeroStreamItem>) {
+  /** Updates a hero card. Resolves with `{ ok, error }` from the database so the UI can report it honestly. */
+  public async updateHeroStreamItem(id: string, updates: Partial<HeroStreamItem>): Promise<{ ok: boolean; error?: string }> {
     const existing = this.heroStream.find((item) => item.id === id);
     const merged = existing ? { ...existing, ...updates } : ({ id, ...updates } as HeroStreamItem);
 
@@ -477,12 +510,13 @@ class WorkspaceStore {
       item.id === id ? { ...item, ...updates } : item
     );
     this.persist(STORAGE_KEYS.HERO_STREAM, this.heroStream);
-    this.notify();
 
-    if (isSupabaseConfigured) {
-      supabaseService.upsertHeroStreamItem(merged).catch((err) =>
-        console.warn('Supabase upsertHeroStreamItem failed:', err)
-      );
+    if (!isSupabaseConfigured) return { ok: true };
+    try {
+      const saved = await supabaseService.upsertHeroStreamItem(merged);
+      return saved ? { ok: true } : { ok: false, error: 'The database rejected the change. Make sure you are signed in as an admin.' };
+    } catch (err: any) {
+      return { ok: false, error: err?.message || 'Network error while saving.' };
     }
   }
 

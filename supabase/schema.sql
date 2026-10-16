@@ -288,6 +288,37 @@ ON public.member_submissions FOR UPDATE
 USING (true);
 
 -- ==========================================================
+-- STORAGE BUCKETS (images, videos, PDFs uploaded from the dashboard)
+-- Without these, uploads cannot be stored as files.
+-- ==========================================================
+INSERT INTO storage.buckets (id, name, public)
+VALUES
+    ('lookbook', 'lookbook', true),
+    ('assets', 'assets', true),
+    ('deliverables', 'deliverables', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+DROP POLICY IF EXISTS "Harvs public read media" ON storage.objects;
+CREATE POLICY "Harvs public read media"
+ON storage.objects FOR SELECT
+USING (bucket_id IN ('lookbook', 'assets', 'deliverables'));
+
+DROP POLICY IF EXISTS "Harvs signed-in upload media" ON storage.objects;
+CREATE POLICY "Harvs signed-in upload media"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (bucket_id IN ('lookbook', 'assets', 'deliverables'));
+
+DROP POLICY IF EXISTS "Harvs signed-in update media" ON storage.objects;
+CREATE POLICY "Harvs signed-in update media"
+ON storage.objects FOR UPDATE TO authenticated
+USING (bucket_id IN ('lookbook', 'assets', 'deliverables'));
+
+DROP POLICY IF EXISTS "Harvs signed-in delete media" ON storage.objects;
+CREATE POLICY "Harvs signed-in delete media"
+ON storage.objects FOR DELETE TO authenticated
+USING (bucket_id IN ('lookbook', 'assets', 'deliverables'));
+
+-- ==========================================================
 -- SEED DATA FOR HERO STREAM (2 Rows, Initial Looks)
 -- ==========================================================
 INSERT INTO public.hero_stream_items (id, title, category, tag, image, row_number, order_index)

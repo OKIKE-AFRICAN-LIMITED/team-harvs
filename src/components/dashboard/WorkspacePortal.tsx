@@ -120,6 +120,7 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
     const { data } = authService.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         setCurrentUser(session.user);
+        workspaceStore.syncFromSupabase();
         const profile = await authService.getProfile(session.user.id);
         if (profile) {
           setCurrentProfile(profile);

@@ -40,8 +40,9 @@ export const NewAssetModal: React.FC<NewAssetModalProps> = ({ isOpen, onClose })
         fileSize: res.size,
         fileType: res.type.toUpperCase() || 'FILE',
       }));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Asset upload failed:', err);
+      window.alert(err?.message || 'Upload failed. Please try again.');
     } finally {
       setIsUploading(false);
     }
