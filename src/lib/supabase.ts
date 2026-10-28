@@ -363,20 +363,30 @@ export const supabaseService = {
       console.warn('Supabase getBriefs error:', error);
       return null;
     }
-    return (data || []).map((row: any) => ({
-      id: row.id,
-      title: row.title,
-      status: row.status,
-      discipline: row.discipline,
-      location: row.location,
-      callTime: row.call_time,
-      date: row.shoot_date || 'Upcoming',
-      lead: row.lead,
-      assignedTalent: row.assigned_talent || [],
-      deliverables: row.deliverables || [],
-      description: row.description,
-      budget: row.budget,
-    }));
+    return (data || []).map((row: any) => {
+      const isAssignment = Boolean(
+        row.is_assignment ||
+        row.assignment_text ||
+        (row.title && row.title.toLowerCase().includes('assignment')) ||
+        (row.description && (row.description.toLowerCase().includes('assignment instructions') || row.description.toLowerCase().startsWith('[assignment]')))
+      );
+      return {
+        id: row.id,
+        title: row.title,
+        status: row.status,
+        discipline: row.discipline,
+        location: row.location,
+        callTime: row.call_time,
+        date: row.shoot_date || 'Upcoming',
+        lead: row.lead,
+        assignedTalent: row.assigned_talent || [],
+        deliverables: row.deliverables || [],
+        description: row.description,
+        budget: row.budget,
+        isAssignment,
+        assignmentText: isAssignment ? (row.assignment_text || row.description) : undefined,
+      };
+    });
   },
 
   async insertBrief(brief: Omit<ProjectBrief, 'id' | 'date'>): Promise<ProjectBrief | null> {
@@ -475,33 +485,43 @@ export const supabaseService = {
       console.warn('Supabase getSubmissions error:', error);
       return null;
     }
-    return (data || []).map((row: any) => ({
-      id: row.id,
-      briefId: row.brief_id,
-      briefTitle: row.brief_title,
-      memberName: row.member_name,
-      role: row.role,
-      link: row.link,
-      pdfUrl: row.pdf_url || undefined,
-      notes: row.notes,
-      date: row.created_at ? new Date(row.created_at).toLocaleDateString() : 'Recent',
-      status: row.status,
-      adminFeedback: row.admin_feedback || undefined,
-    }));
+    return (data || []).map((row: any) => {
+      const isTextSub = row.link === 'text://submission' || (!row.pdf_url && (!row.link || !row.link.startsWith('http')));
+      return {
+        id: row.id,
+        briefId: row.brief_id,
+        briefTitle: row.brief_title,
+        memberName: row.member_name,
+        role: row.role,
+        link: row.link,
+        pdfUrl: row.pdf_url || undefined,
+        textContent: isTextSub ? row.notes : undefined,
+        submissionType: row.pdf_url ? 'pdf' : isTextSub ? 'text' : 'link',
+        notes: row.notes,
+        date: row.created_at ? new Date(row.created_at).toLocaleDateString() : 'Recent',
+        status: row.status,
+        adminFeedback: row.admin_feedback || undefined,
+      };
+    });
   },
 
   async insertSubmission(sub: Omit<MemberSubmission, 'id' | 'date' | 'status'>, memberId?: string): Promise<MemberSubmission | null> {
     if (!isSupabaseConfigured) return null;
     const isUuid = Boolean(memberId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(memberId));
+    const effectiveNotes = sub.textContent 
+      ? (sub.notes && sub.notes !== sub.textContent ? `${sub.textContent}\n\n[Talent Notes: ${sub.notes}]` : sub.textContent)
+      : (sub.notes || '');
+    const effectiveLink = sub.link || (sub.textContent ? 'text://submission' : (sub.pdfUrl || ''));
+
     const payload: any = {
       brief_id: sub.briefId,
       brief_title: sub.briefTitle,
       member_id: isUuid ? memberId : null,
       member_name: sub.memberName || 'Creative Member',
       role: sub.role || 'Stylists',
-      link: sub.link || sub.pdfUrl || '',
+      link: effectiveLink,
       pdf_url: sub.pdfUrl || '',
-      notes: sub.notes || '',
+      notes: effectiveNotes,
       status: 'Submitted',
     };
 
@@ -535,6 +555,8 @@ export const supabaseService = {
       role: data.role,
       link: data.link,
       pdfUrl: data.pdf_url || sub.pdfUrl,
+      textContent: sub.textContent || (data.link === 'text://submission' ? data.notes : undefined),
+      submissionType: sub.submissionType || (data.pdf_url ? 'pdf' : sub.textContent ? 'text' : 'link'),
       notes: data.notes,
       date: 'Just now',
       status: data.status,

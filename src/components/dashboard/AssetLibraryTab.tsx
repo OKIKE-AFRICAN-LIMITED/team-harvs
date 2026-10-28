@@ -9,9 +9,11 @@ import {
   Check, 
   ExternalLink,
   Plus,
-  Tag
+  Tag,
+  Loader2
 } from 'lucide-react';
 import { CreativeAsset, workspaceStore } from '@/lib/workspaceStore';
+import { downloadFile } from '@/lib/downloadHelper';
 
 interface AssetLibraryTabProps {
   assets: CreativeAsset[];
@@ -25,8 +27,29 @@ export const AssetLibraryTab: React.FC<AssetLibraryTabProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const categories = ['All', 'Brand Assets', 'Call Sheets', 'Moodboards', 'Presets', 'Guidelines'];
+
+  const handleDownloadAsset = async (asset: CreativeAsset) => {
+    if (!asset.downloadUrl || asset.downloadUrl === '#' || asset.downloadUrl.trim() === '') {
+      alert('This resource has no valid downloadable file attached.');
+      return;
+    }
+    setDownloadingId(asset.id);
+    const ext = asset.fileType?.toLowerCase().includes('pdf') ? 'pdf' 
+      : asset.fileType?.toLowerCase().includes('jpg') || asset.fileType?.toLowerCase().includes('jpeg') ? 'jpg'
+      : asset.fileType?.toLowerCase().includes('png') ? 'png'
+      : 'pdf';
+    const filename = `${asset.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.${ext}`;
+    try {
+      await downloadFile(asset.downloadUrl, filename);
+    } catch (err) {
+      console.error('Download error:', err);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const filteredAssets = assets.filter((asset) => {
     const matchesSearch = 
@@ -170,15 +193,29 @@ export const AssetLibraryTab: React.FC<AssetLibraryTabProps> = ({
                 </button>
 
                 <div className="flex items-center gap-2">
-                  <a
-                    href={asset.downloadUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-2 rounded-lg bg-[#EFCEA5]/15 hover:bg-[#EFCEA5] text-[#EFCEA5] hover:text-[#1F0205] transition-all"
-                    title="Download or View"
+                  <button
+                    onClick={() => handleDownloadAsset(asset)}
+                    disabled={downloadingId === asset.id}
+                    className="p-2 rounded-lg bg-[#EFCEA5]/15 hover:bg-[#EFCEA5] text-[#EFCEA5] hover:text-[#1F0205] transition-all disabled:opacity-50"
+                    title="Download Asset File"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                  </a>
+                    {downloadingId === asset.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Download className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                  {asset.downloadUrl && asset.downloadUrl !== '#' && (
+                    <a
+                      href={asset.downloadUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-[#EFCEA5]/70 hover:text-[#EFCEA5] transition-all"
+                      title="Open or preview in new tab"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  )}
                   <button
                     onClick={() => handleDelete(asset.id, asset.title)}
                     className="p-2 rounded-lg bg-white/5 hover:bg-rose-950/80 text-rose-400 transition-colors"

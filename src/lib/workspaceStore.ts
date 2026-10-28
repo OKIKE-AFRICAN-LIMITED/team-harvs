@@ -67,6 +67,8 @@ export interface ProjectBrief {
   deliverables: string[];
   description: string;
   budget?: string;
+  assignmentText?: string;
+  isAssignment?: boolean;
 }
 
 export interface CreativeAsset {
@@ -88,6 +90,8 @@ export interface MemberSubmission {
   role: string;
   link: string;
   pdfUrl?: string;
+  textContent?: string;
+  submissionType?: 'link' | 'pdf' | 'text';
   notes: string;
   date: string;
   status: 'Submitted' | 'Approved' | 'Revision Requested';

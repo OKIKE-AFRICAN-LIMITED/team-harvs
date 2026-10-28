@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Send, 
   MapPin, 
@@ -13,10 +13,14 @@ import {
   Inbox,
   ArrowUpRight,
   ShieldCheck,
-  Eye
+  Eye,
+  Loader2,
+  Copy,
+  Check
 } from 'lucide-react';
 import { ProjectBrief, CreativeAsset, MemberSubmission, workspaceStore } from '@/lib/workspaceStore';
 import type { Profile } from '@/lib/supabase';
+import { downloadFile } from '@/lib/downloadHelper';
 import { DeliverableReviewModal } from './DeliverableReviewModal';
 
 export interface MemberDashboardProps {
@@ -26,7 +30,7 @@ export interface MemberDashboardProps {
   submissions: MemberSubmission[];
   activeTab?: 'overview' | 'briefs' | 'submissions' | 'assets';
   onNavigateTab?: (tab: any) => void;
-  onOpenSubmitDeliverable: () => void;
+  onOpenSubmitDeliverable: (briefId?: string) => void;
 }
 
 export const MemberDashboard: React.FC<MemberDashboardProps> = ({
@@ -38,7 +42,36 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
   onNavigateTab,
   onOpenSubmitDeliverable,
 }) => {
-  const [selectedSubmission, setSelectedSubmission] = React.useState<MemberSubmission | null>(null);
+  const [selectedSubmission, setSelectedSubmission] = useState<MemberSubmission | null>(null);
+  const [downloadingAssetId, setDownloadingAssetId] = useState<string | null>(null);
+  const [copiedBriefId, setCopiedBriefId] = useState<string | null>(null);
+
+  const handleDownloadAsset = async (ast: CreativeAsset) => {
+    if (!ast.downloadUrl || ast.downloadUrl === '#' || ast.downloadUrl.trim() === '') {
+      alert('This resource has no valid downloadable file attached.');
+      return;
+    }
+    setDownloadingAssetId(ast.id);
+    const ext = ast.fileType?.toLowerCase().includes('pdf') ? 'pdf' 
+      : ast.fileType?.toLowerCase().includes('jpg') || ast.fileType?.toLowerCase().includes('jpeg') ? 'jpg'
+      : ast.fileType?.toLowerCase().includes('png') ? 'png'
+      : 'pdf';
+    const filename = `${ast.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.${ext}`;
+    try {
+      await downloadFile(ast.downloadUrl, filename);
+    } catch (err) {
+      console.error('Download error:', err);
+    } finally {
+      setDownloadingAssetId(null);
+    }
+  };
+
+  const handleCopyAssignment = (brief: ProjectBrief) => {
+    const textToCopy = brief.assignmentText || brief.description || brief.title;
+    navigator.clipboard.writeText(textToCopy);
+    setCopiedBriefId(brief.id);
+    setTimeout(() => setCopiedBriefId(null), 2000);
+  };
   const activeBriefs = briefs.filter((b) => b.status === 'In Production' || b.status === 'Planning');
 
   // Record member brief view interaction for audit tracking
@@ -100,7 +133,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
 
               <div className="pt-3">
                 <button
-                  onClick={onOpenSubmitDeliverable}
+                  onClick={() => onOpenSubmitDeliverable()}
                   className="flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider bg-[#EFCEA5] text-[#1F0205] hover:bg-[#F8F4EF] transition-all shadow-xl hover:scale-105"
                 >
                   <Send className="w-3.5 h-3.5" /> Submit Deliverables / Drive Link
@@ -208,9 +241,17 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                           {brief.status}
                         </span>
                       </div>
-                      <div className="flex items-center gap-4 text-[0.7rem] text-[#EFCEA5]/70">
-                        <span>Loc: {brief.location}</span>
-                        <span>Call: {brief.callTime}</span>
+                      <div className="flex items-center justify-between gap-2 text-[0.7rem] text-[#EFCEA5]/70 pt-1">
+                        <div className="flex items-center gap-3">
+                          <span>Loc: {brief.location}</span>
+                          <span>Call: {brief.callTime}</span>
+                        </div>
+                        <button
+                          onClick={() => onOpenSubmitDeliverable(brief.id)}
+                          className="text-[0.68rem] text-[#EFCEA5] hover:underline font-semibold"
+                        >
+                          {brief.isAssignment ? 'Submit Task &rarr;' : 'Submit &rarr;'}
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -239,7 +280,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                 <div className="py-8 text-center text-xs text-[#EFCEA5]/60 space-y-2">
                   <p>No deliverables submitted yet.</p>
                   <button
-                    onClick={onOpenSubmitDeliverable}
+                    onClick={() => onOpenSubmitDeliverable()}
                     className="text-xs text-[#EFCEA5] font-semibold underline"
                   >
                     + Submit First Deliverable
@@ -288,7 +329,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
               </p>
             </div>
             <button
-              onClick={onOpenSubmitDeliverable}
+              onClick={() => onOpenSubmitDeliverable()}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-[#EFCEA5] text-[#1F0205] hover:bg-[#F8F4EF] transition-all shadow-md shrink-0"
             >
               <Send className="w-3.5 h-3.5" /> Submit Work
@@ -310,10 +351,17 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                   key={brief.id} 
                   className="bg-[#170204] border border-[#EFCEA5]/15 rounded-3xl p-7 space-y-5 transition-all hover:border-[#EFCEA5]/35"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="text-[0.68rem] px-3 py-1 rounded-full bg-[#EFCEA5]/10 text-[#EFCEA5] border border-[#EFCEA5]/20 uppercase tracking-wider font-semibold">
-                      {brief.discipline}
-                    </span>
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      {brief.isAssignment && (
+                        <span className="text-[0.65rem] px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 uppercase tracking-wider font-semibold flex items-center gap-1">
+                          <FileText className="w-3 h-3" /> Assignment
+                        </span>
+                      )}
+                      <span className="text-[0.68rem] px-3 py-1 rounded-full bg-[#EFCEA5]/10 text-[#EFCEA5] border border-[#EFCEA5]/20 uppercase tracking-wider font-semibold">
+                        {brief.discipline}
+                      </span>
+                    </div>
                     <span className="text-[0.65rem] px-3 py-1 rounded-full bg-amber-950 text-amber-300 border border-amber-600/30 uppercase tracking-wider font-semibold">
                       {brief.status}
                     </span>
@@ -324,25 +372,50 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                   <div className="space-y-2 pt-2 border-t border-[#EFCEA5]/10 text-xs text-[#EFCEA5]/80">
                     <div className="flex items-center gap-2">
                       <MapPin className="w-4 h-4 text-[#EFCEA5] shrink-0" />
-                      <span>Location: <strong>{brief.location}</strong></span>
+                      <span>{brief.isAssignment ? 'Venue / Drop: ' : 'Location: '}<strong>{brief.location}</strong></span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 text-[#EFCEA5] shrink-0" />
-                      <span>Call Time: <strong>{brief.callTime}</strong></span>
+                      <span>{brief.isAssignment ? 'Deadline: ' : 'Call Time: '}<strong>{brief.callTime}</strong></span>
                     </div>
                   </div>
 
-                  <p className="text-xs text-[#F8F4EF]/75 leading-relaxed pt-1">
-                    {brief.description}
-                  </p>
+                  {/* Assignment / Brief Text Instructions */}
+                  <div className="p-4 rounded-xl bg-black/40 border border-[#EFCEA5]/15 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[0.65rem] uppercase tracking-wider text-[#EFCEA5]/70 font-semibold flex items-center gap-1">
+                        <FileText className="w-3 h-3 text-[#EFCEA5]" />
+                        {brief.isAssignment ? 'Assignment Instructions' : 'Creative Vision'}
+                      </span>
+                      <button
+                        onClick={() => handleCopyAssignment(brief)}
+                        className="text-[0.68rem] text-[#EFCEA5] hover:text-white flex items-center gap-1 transition-colors"
+                      >
+                        {copiedBriefId === brief.id ? (
+                          <>
+                            <Check className="w-3 h-3 text-emerald-400" />
+                            <span className="text-emerald-400 font-semibold">Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3" />
+                            <span>Copy Instructions</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-xs text-[#F8F4EF]/85 leading-relaxed whitespace-pre-line font-sans">
+                      {brief.assignmentText || brief.description}
+                    </p>
+                  </div>
 
                   <div className="pt-4 border-t border-[#EFCEA5]/10 flex items-center justify-between">
                     <span className="text-[0.68rem] text-[#EFCEA5]/60">Lead: {brief.lead}</span>
                     <button
-                      onClick={onOpenSubmitDeliverable}
+                      onClick={() => onOpenSubmitDeliverable(brief.id)}
                       className="text-xs text-[#EFCEA5] font-semibold hover:underline flex items-center gap-1"
                     >
-                      Submit Deliverables &rarr;
+                      {brief.isAssignment ? 'Submit Assignment Work &rarr;' : 'Submit Deliverables &rarr;'}
                     </button>
                   </div>
                 </div>
@@ -365,7 +438,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
               </p>
             </div>
             <button
-              onClick={onOpenSubmitDeliverable}
+              onClick={() => onOpenSubmitDeliverable()}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-[#EFCEA5] text-[#1F0205] hover:bg-[#F8F4EF] transition-all shadow-md shrink-0"
             >
               + Submit New Work
@@ -380,7 +453,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                 When you submit your high-res stills, video cuts, moodboard links, or face charts, their review status will appear here.
               </p>
               <button
-                onClick={onOpenSubmitDeliverable}
+                onClick={() => onOpenSubmitDeliverable()}
                 className="mt-3 px-6 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-[#EFCEA5] text-[#1F0205]"
               >
                 + Submit Work Now
@@ -464,9 +537,34 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                   <h3 className="text-base font-serif text-[#F8F4EF]">{ast.title}</h3>
                   <div className="pt-3 border-t border-[#EFCEA5]/10 flex items-center justify-between text-xs text-[#EFCEA5]/70">
                     <span>{ast.fileType} &bull; {ast.fileSize}</span>
-                    <a href={ast.downloadUrl} className="text-[#EFCEA5] hover:underline flex items-center gap-1 font-semibold">
-                      <Download className="w-3.5 h-3.5" /> Download
-                    </a>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleDownloadAsset(ast)}
+                        disabled={downloadingAssetId === ast.id}
+                        className="text-[#EFCEA5] hover:text-white flex items-center gap-1 font-semibold transition-colors disabled:opacity-50"
+                      >
+                        {downloadingAssetId === ast.id ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Downloading...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-3.5 h-3.5" /> Download
+                          </>
+                        )}
+                      </button>
+                      {ast.downloadUrl && ast.downloadUrl !== '#' && (
+                        <a
+                          href={ast.downloadUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1 rounded text-[#EFCEA5]/60 hover:text-[#EFCEA5] transition-colors"
+                          title="Open or preview in new tab"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

@@ -59,10 +59,17 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
   const [isNewLookOpen, setIsNewLookOpen] = useState(false);
   const [editingLookWork, setEditingLookWork] = useState<LookbookWork | null>(null);
   const [isNewBriefOpen, setIsNewBriefOpen] = useState(false);
+  const [newBriefInitialMode, setNewBriefInitialMode] = useState<'brief' | 'assignment'>('brief');
   const [isNewAssetOpen, setIsNewAssetOpen] = useState(false);
   const [selectedApplicant, setSelectedApplicant] = useState<Application | null>(null);
   const [isSubmitDeliverableOpen, setIsSubmitDeliverableOpen] = useState(false);
+  const [submitDeliverableBriefId, setSubmitDeliverableBriefId] = useState<string | undefined>(undefined);
   const [previewLookWork, setPreviewLookWork] = useState<LookbookWork | null>(null);
+
+  const handleOpenSubmitDeliverable = (targetBriefId?: string | unknown) => {
+    setSubmitDeliverableBriefId(typeof targetBriefId === 'string' ? targetBriefId : undefined);
+    setIsSubmitDeliverableOpen(true);
+  };
 
   // Auth & Profile state
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -230,7 +237,7 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
         onOpenNewLook={() => setIsNewLookOpen(true)}
         onOpenNewBrief={() => setIsNewBriefOpen(true)}
         onOpenNewAsset={() => setIsNewAssetOpen(true)}
-        onOpenSubmitDeliverable={() => setIsSubmitDeliverableOpen(true)}
+        onOpenSubmitDeliverable={handleOpenSubmitDeliverable}
       />
 
       {/* 2. MAIN WORKSPACE CONTAINER (Top Bar + Scrollable Content) */}
@@ -250,7 +257,7 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
           onOpenNewLook={() => setIsNewLookOpen(true)}
           onOpenNewBrief={() => setIsNewBriefOpen(true)}
           onOpenNewAsset={() => setIsNewAssetOpen(true)}
-          onOpenSubmitDeliverable={() => setIsSubmitDeliverableOpen(true)}
+          onOpenSubmitDeliverable={handleOpenSubmitDeliverable}
         />
 
         {/* SCROLLABLE DASHBOARD CANVAS */}
@@ -310,7 +317,14 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
                 setEditingLookWork(work);
                 setIsNewLookOpen(true);
               }}
-              onOpenNewBrief={() => setIsNewBriefOpen(true)}
+              onOpenNewBrief={() => {
+                setNewBriefInitialMode('brief');
+                setIsNewBriefOpen(true);
+              }}
+              onOpenTextAssignment={() => {
+                setNewBriefInitialMode('assignment');
+                setIsNewBriefOpen(true);
+              }}
               onOpenNewAsset={() => setIsNewAssetOpen(true)}
               onSelectApplicant={(app) => setSelectedApplicant(app)}
               onPreviewLook={(work) => setPreviewLookWork(work)}
@@ -324,7 +338,7 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
               submissions={submissions}
               activeTab={activeTab}
               onNavigateTab={(tab) => setActiveTab(tab)}
-              onOpenSubmitDeliverable={() => setIsSubmitDeliverableOpen(true)}
+              onOpenSubmitDeliverable={handleOpenSubmitDeliverable}
             />
           )}
 
@@ -346,9 +360,10 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
         }}
       />
 
-      {/* 2. New Brief Modal */}
+      {/* 2. New Brief / Drop Text Assignment Modal */}
       <NewBriefModal
         isOpen={isNewBriefOpen}
+        initialMode={newBriefInitialMode}
         onClose={() => setIsNewBriefOpen(false)}
       />
 
@@ -368,7 +383,11 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
       {/* 5. Submit Deliverable Modal */}
       <SubmitDeliverableModal
         isOpen={isSubmitDeliverableOpen}
-        onClose={() => setIsSubmitDeliverableOpen(false)}
+        initialBriefId={submitDeliverableBriefId}
+        onClose={() => {
+          setIsSubmitDeliverableOpen(false);
+          setSubmitDeliverableBriefId(undefined);
+        }}
         briefs={briefs}
         currentUser={currentUser}
         currentProfile={currentProfile}

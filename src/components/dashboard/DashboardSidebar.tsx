@@ -58,7 +58,7 @@ interface DashboardSidebarProps {
   onOpenNewLook?: () => void;
   onOpenNewBrief?: () => void;
   onOpenNewAsset?: () => void;
-  onOpenSubmitDeliverable?: () => void;
+  onOpenSubmitDeliverable?: (briefId?: string) => void;
 }
 
 export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
@@ -331,7 +331,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
               ) : (
                 onOpenSubmitDeliverable && (
                   <button
-                    onClick={onOpenSubmitDeliverable}
+                    onClick={() => onOpenSubmitDeliverable()}
                     className="w-full py-2 px-3 rounded-xl bg-[#EFCEA5] text-[#1F0205] text-[0.68rem] font-bold uppercase tracking-wider hover:bg-white transition-all flex items-center justify-center gap-1.5 shadow-md"
                   >
                     <Send className="w-3 h-3" /> Submit Work &rarr;

@@ -14,9 +14,12 @@ import {
   MessageSquare,
   Eye,
   AlertTriangle,
-  RotateCcw
+  RotateCcw,
+  Copy,
+  Check
 } from 'lucide-react';
 import { MemberSubmission, ProjectBrief, workspaceStore } from '@/lib/workspaceStore';
+import { downloadFile } from '@/lib/downloadHelper';
 
 interface DeliverableReviewModalProps {
   submission: MemberSubmission | null;
@@ -36,6 +39,25 @@ export const DeliverableReviewModal: React.FC<DeliverableReviewModalProps> = ({
   const [feedback, setFeedback] = useState(submission.adminFeedback || '');
   const [isUpdating, setIsUpdating] = useState(false);
   const [activePreviewTab, setActivePreviewTab] = useState<'preview' | 'details'>('preview');
+  const [hasCopiedText, setHasCopiedText] = useState(false);
+
+  // Sync initial feedback state when active submission changes
+  useEffect(() => {
+    setFeedback(submission.adminFeedback || '');
+    setHasCopiedText(false);
+  }, [submission]);
+
+  const isPdf = Boolean(
+    submission.pdfUrl || 
+    submission.link?.toLowerCase().endsWith('.pdf') || 
+    submission.link?.includes('.pdf') || 
+    submission.link?.startsWith('data:application/pdf')
+  );
+  const isTextSubmission = Boolean(
+    submission.submissionType === 'text' ||
+    submission.textContent ||
+    submission.link === 'text://submission'
+  );
 
   // Find connected project brief if available
   const matchingBrief = useMemo(() => {
@@ -77,14 +99,25 @@ export const DeliverableReviewModal: React.FC<DeliverableReviewModalProps> = ({
     const url = safePdfBlobUrl || submission.pdfUrl || submission.link;
     if (!url) return;
 
-    const safeName = `${submission.memberName.replace(/\s+/g, '_')}_${submission.briefTitle.replace(/\s+/g, '_')}_deliverable.pdf`;
+    const safeName = `${submission.memberName.replace(/[^a-zA-Z0-9_-]/g, '_')}_${submission.briefTitle.replace(/[^a-zA-Z0-9_-]/g, '_')}_deliverable.pdf`;
+    downloadFile(url, safeName);
+  };
 
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = safeName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  const handleCopySubmittedText = () => {
+    const text = submission.textContent || submission.notes;
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setHasCopiedText(true);
+    setTimeout(() => setHasCopiedText(false), 2000);
+  };
+
+  const handleDownloadTextAsFile = () => {
+    const text = submission.textContent || submission.notes;
+    if (!text) return;
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const blobUrl = URL.createObjectURL(blob);
+    const safeName = `${submission.memberName.replace(/[^a-zA-Z0-9_-]/g, '_')}_${submission.briefTitle.replace(/[^a-zA-Z0-9_-]/g, '_')}_assignment.txt`;
+    downloadFile(blobUrl, safeName);
   };
 
   const handleOpenExternal = () => {
@@ -117,8 +150,6 @@ export const DeliverableReviewModal: React.FC<DeliverableReviewModalProps> = ({
       onClose();
     }
   };
-
-  const isPdf = Boolean(submission.pdfUrl || submission.link?.toLowerCase().endsWith('.pdf') || submission.link?.startsWith('data:application/pdf'));
 
   return (
     <div 
@@ -284,7 +315,42 @@ export const DeliverableReviewModal: React.FC<DeliverableReviewModalProps> = ({
                   Preview rendered inside studio sandbox. Use "Download PDF" or "Open in New Tab" for high-resolution inspection.
                 </p>
               </div>
-            ) : submission.link ? (
+            ) : isTextSubmission ? (
+              <div className="p-5 rounded-xl bg-[#1C0306] border border-[#EFCEA5]/20 space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-[#EFCEA5]/10">
+                  <span className="text-xs uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5" /> Written Assignment Submission
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleCopySubmittedText}
+                      className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-[#EFCEA5] flex items-center gap-1 transition-colors"
+                    >
+                      {hasCopiedText ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-emerald-400 font-semibold">Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copy Text</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={handleDownloadTextAsFile}
+                      className="px-3 py-1.5 rounded-lg bg-[#EFCEA5] text-[#1F0205] text-xs font-semibold flex items-center gap-1 hover:bg-white transition-colors"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Save .txt
+                    </button>
+                  </div>
+                </div>
+                <div className="p-4 rounded-xl bg-black/50 border border-[#EFCEA5]/10 text-sm text-[#F8F4EF] leading-relaxed whitespace-pre-wrap font-sans select-text">
+                  {submission.textContent || submission.notes}
+                </div>
+              </div>
+            ) : submission.link && submission.link !== '#' && submission.link !== 'text://submission' ? (
               <div className="p-4 rounded-xl bg-white/[0.03] border border-[#EFCEA5]/10 flex items-center justify-between gap-3">
                 <div className="space-y-0.5 truncate">
                   <span className="text-[0.65rem] uppercase tracking-wider text-[#EFCEA5]/60 block">Asset URL</span>

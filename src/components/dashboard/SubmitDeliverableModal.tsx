@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Send, Link as LinkIcon, CheckCircle2, FileUp, Loader2, Check } from 'lucide-react';
+import { X, Send, Link as LinkIcon, CheckCircle2, FileUp, Loader2, Check, FileText } from 'lucide-react';
 import { workspaceStore, ProjectBrief, DISCIPLINES } from '@/lib/workspaceStore';
 import { uploadLocalFile } from '@/lib/fileUpload';
 
@@ -9,6 +9,7 @@ interface SubmitDeliverableModalProps {
   isOpen: boolean;
   onClose: () => void;
   briefs: ProjectBrief[];
+  initialBriefId?: string;
   currentUser?: any;
   currentProfile?: Profile | null;
 }
@@ -17,24 +18,34 @@ export const SubmitDeliverableModal: React.FC<SubmitDeliverableModalProps> = ({
   isOpen,
   onClose,
   briefs,
+  initialBriefId,
   currentUser,
   currentProfile,
 }) => {
-  const [briefId, setBriefId] = useState(briefs[0]?.id || '');
+  const [briefId, setBriefId] = useState(initialBriefId || (briefs[0]?.id || 'general'));
   const [memberName, setMemberName] = useState('');
   const [role, setRole] = useState<string>(DISCIPLINES[0]);
-  const [submissionType, setSubmissionType] = useState<'link' | 'pdf'>('link');
+  const [submissionType, setSubmissionType] = useState<'link' | 'pdf' | 'text'>('link');
   const [link, setLink] = useState('');
   const [pdfUrl, setPdfUrl] = useState<string | undefined>(undefined);
   const [uploadedPdfName, setUploadedPdfName] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [textContent, setTextContent] = useState('');
   const [notes, setNotes] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
-    if (briefs.length > 0 && !briefId) {
-      setBriefId(briefs[0].id);
+    if (isOpen) {
+      if (initialBriefId) {
+        setBriefId(initialBriefId);
+        const target = briefs.find(b => b.id === initialBriefId);
+        if (target?.isAssignment || target?.assignmentText) {
+          setSubmissionType('text');
+        }
+      } else if (!briefId || briefId === '') {
+        setBriefId(briefs[0]?.id || 'general');
+      }
     }
     if (currentProfile?.full_name) {
       setMemberName(currentProfile.full_name);
@@ -44,7 +55,7 @@ export const SubmitDeliverableModal: React.FC<SubmitDeliverableModalProps> = ({
     if (currentProfile?.discipline) {
       setRole(currentProfile.discipline);
     }
-  }, [currentProfile, currentUser, isOpen, briefs]);
+  }, [currentProfile, currentUser, isOpen, briefs, initialBriefId]);
 
   if (!isOpen) return null;
 
@@ -68,19 +79,39 @@ export const SubmitDeliverableModal: React.FC<SubmitDeliverableModalProps> = ({
     }
   };
 
+  const selectedBrief = briefs.find((b) => b.id === briefId);
+  const assignments = briefs.filter((b) => b.isAssignment || b.assignmentText);
+  const shootBriefs = briefs.filter((b) => !b.isAssignment && !b.assignmentText);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const targetBrief = briefs.find((b) => b.id === briefId) || briefs[0];
-    const finalLink = submissionType === 'pdf' ? (pdfUrl || link || '') : (link || pdfUrl || '');
+    const isGeneral = !briefId || briefId === 'general';
+    const finalBriefId = isGeneral ? 'general-assignment' : (selectedBrief?.id || briefs[0]?.id || 'brief-gen');
+    const finalBriefTitle = isGeneral
+      ? 'General / Open Assignment Submission'
+      : `${selectedBrief?.isAssignment ? '[Assignment] ' : ''}${selectedBrief?.title || 'Production Submission'}`;
+
+    const finalLink = submissionType === 'text'
+      ? 'text://submission'
+      : submissionType === 'pdf'
+        ? (pdfUrl || link || '')
+        : (link || pdfUrl || '');
+
+    if (submissionType === 'text' && !textContent.trim()) {
+      alert('Please enter your written assignment or deliverable text before submitting.');
+      return;
+    }
     
     workspaceStore.addSubmission({
-      briefId: targetBrief?.id || 'brief-gen',
-      briefTitle: targetBrief?.title || 'Production Submission',
+      briefId: finalBriefId,
+      briefTitle: finalBriefTitle,
       memberName: memberName.trim() || currentProfile?.full_name || 'Creative Member',
       role,
       link: finalLink || '#',
-      pdfUrl: pdfUrl || (submissionType === 'pdf' ? finalLink : undefined),
-      notes,
+      pdfUrl: submissionType === 'pdf' ? (pdfUrl || finalLink) : undefined,
+      textContent: submissionType === 'text' ? textContent.trim() : undefined,
+      submissionType,
+      notes: notes.trim() || (submissionType === 'text' ? textContent.trim() : ''),
     }, currentUser?.id);
 
     setIsSuccess(true);
@@ -115,24 +146,66 @@ export const SubmitDeliverableModal: React.FC<SubmitDeliverableModalProps> = ({
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs uppercase tracking-wider text-[#EFCEA5]/80 mb-1.5">
-                Target Production Brief
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs uppercase tracking-wider text-[#EFCEA5]/80">
+                  Target Assignment or Shoot Brief
+                </label>
+                {selectedBrief && (
+                  <span className={`text-[0.62rem] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
+                    selectedBrief.isAssignment 
+                      ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40' 
+                      : 'bg-[#EFCEA5]/10 text-[#EFCEA5] border border-[#EFCEA5]/20'
+                  }`}>
+                    {selectedBrief.isAssignment ? 'Assignment Task' : 'Shoot Brief'}
+                  </span>
+                )}
+              </div>
               <select
                 value={briefId}
-                onChange={(e) => setBriefId(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setBriefId(val);
+                  const b = briefs.find(item => item.id === val);
+                  if (b?.isAssignment && submissionType !== 'text') {
+                    setSubmissionType('text');
+                  }
+                }}
                 className="w-full bg-[#2A050A] border border-[#EFCEA5]/20 rounded-lg px-3.5 py-2.5 text-sm text-[#F8F4EF] focus:outline-none focus:border-[#EFCEA5]"
               >
-                {briefs.length === 0 ? (
-                  <option value="general">General / Independent Editorial Submission</option>
-                ) : (
-                  briefs.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.title} ({b.discipline})
-                    </option>
-                  ))
+                <option value="general">✨ General / Open Assignment Submission</option>
+
+                {assignments.length > 0 && (
+                  <optgroup label="📋 Active Assignments & Tasks">
+                    {assignments.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        [ASSIGNMENT] {b.title.replace(/^\[Assignment\]\s*/i, '')} ({b.discipline})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+
+                {shootBriefs.length > 0 && (
+                  <optgroup label="🎬 Production Briefs & Sets">
+                    {shootBriefs.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        [SHOOT BRIEF] {b.title} ({b.discipline})
+                      </option>
+                    ))}
+                  </optgroup>
                 )}
               </select>
+
+              {/* Context helper when a brief or assignment is selected */}
+              {selectedBrief && (
+                <div className="mt-2 p-2.5 rounded-xl bg-black/40 border border-[#EFCEA5]/10 flex items-center justify-between text-xs text-[#EFCEA5]/80">
+                  <span className="truncate font-sans">
+                    <strong className="text-[#F8F4EF]">{selectedBrief.title.replace(/^\[Assignment\]\s*/i, '')}</strong>
+                    {' &bull; '}
+                    {selectedBrief.isAssignment ? `Deadline: ${selectedBrief.callTime}` : `Call: ${selectedBrief.callTime}`}
+                  </span>
+                  <span className="text-[0.68rem] text-[#EFCEA5]/60 shrink-0 ml-2">Lead: {selectedBrief.lead}</span>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -171,29 +244,53 @@ export const SubmitDeliverableModal: React.FC<SubmitDeliverableModalProps> = ({
               <label className="block text-xs uppercase tracking-wider text-[#EFCEA5]/80 mb-1.5">
                 Deliverable Format
               </label>
-              <div className="flex items-center p-1 rounded-xl bg-black/40 border border-[#EFCEA5]/15 mb-3 text-xs">
+              <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-black/40 border border-[#EFCEA5]/15 mb-3 text-xs">
                 <button
                   type="button"
                   onClick={() => setSubmissionType('link')}
-                  className={`flex-1 py-2 rounded-lg font-semibold uppercase tracking-wider text-[0.68rem] flex items-center justify-center gap-1.5 transition-colors ${
+                  className={`py-2 px-1 rounded-lg font-semibold uppercase tracking-wider text-[0.65rem] flex items-center justify-center gap-1 transition-colors ${
                     submissionType === 'link' ? 'bg-[#EFCEA5] text-[#1F0205]' : 'text-[#EFCEA5]/70 hover:text-[#EFCEA5]'
                   }`}
                 >
-                  <LinkIcon className="w-3.5 h-3.5" /> Cloud Link (Drive/Vimeo)
+                  <LinkIcon className="w-3 h-3" /> Cloud Link
                 </button>
                 <button
                   type="button"
                   onClick={() => setSubmissionType('pdf')}
-                  className={`flex-1 py-2 rounded-lg font-semibold uppercase tracking-wider text-[0.68rem] flex items-center justify-center gap-1.5 transition-colors ${
+                  className={`py-2 px-1 rounded-lg font-semibold uppercase tracking-wider text-[0.65rem] flex items-center justify-center gap-1 transition-colors ${
                     submissionType === 'pdf' ? 'bg-[#EFCEA5] text-[#1F0205]' : 'text-[#EFCEA5]/70 hover:text-[#EFCEA5]'
                   }`}
                 >
-                  <FileUp className="w-3.5 h-3.5" /> PDF Document Upload
+                  <FileUp className="w-3 h-3" /> PDF File
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSubmissionType('text')}
+                  className={`py-2 px-1 rounded-lg font-semibold uppercase tracking-wider text-[0.65rem] flex items-center justify-center gap-1 transition-colors ${
+                    submissionType === 'text' ? 'bg-[#EFCEA5] text-[#1F0205]' : 'text-[#EFCEA5]/70 hover:text-[#EFCEA5]'
+                  }`}
+                >
+                  <FileText className="w-3 h-3" /> Text / Write
                 </button>
               </div>
 
-              {submissionType === 'pdf' ? (
-                <div>
+              {submissionType === 'text' ? (
+                <div className="space-y-1.5 animate-fade-in">
+                  <div className="flex items-center justify-between text-[0.68rem] text-[#EFCEA5]/70">
+                    <span>Drop your written assignment response, concept or treatment:</span>
+                    <span className="font-mono text-[#EFCEA5]">{textContent.trim().split(/\s+/).filter(Boolean).length} words</span>
+                  </div>
+                  <textarea
+                    rows={5}
+                    required
+                    value={textContent}
+                    onChange={(e) => setTextContent(e.target.value)}
+                    placeholder="Type or paste your assignment text here... (e.g. creative treatment, styling notes, copywriting, shot list breakdown, feedback)"
+                    className="w-full bg-[#2A050A] border border-[#EFCEA5]/20 rounded-lg p-3 text-sm text-[#F8F4EF] focus:outline-none focus:border-[#EFCEA5] font-sans leading-relaxed"
+                  />
+                </div>
+              ) : submissionType === 'pdf' ? (
+                <div className="animate-fade-in">
                   <input
                     ref={pdfInputRef}
                     type="file"
@@ -226,7 +323,7 @@ export const SubmitDeliverableModal: React.FC<SubmitDeliverableModalProps> = ({
                   </div>
                 </div>
               ) : (
-                <div>
+                <div className="animate-fade-in">
                   <input
                     type="url"
                     required

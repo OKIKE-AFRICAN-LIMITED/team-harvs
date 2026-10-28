@@ -17,13 +17,15 @@ import { ProjectBrief, workspaceStore } from '@/lib/workspaceStore';
 interface ProjectBriefsTabProps {
   briefs: ProjectBrief[];
   onOpenNewBrief: () => void;
+  onOpenTextAssignment?: () => void;
   onEditBrief: (brief: ProjectBrief) => void;
-  onOpenSubmitDeliverable: () => void;
+  onOpenSubmitDeliverable: (briefId?: string) => void;
 }
 
 export const ProjectBriefsTab: React.FC<ProjectBriefsTabProps> = ({
   briefs,
   onOpenNewBrief,
+  onOpenTextAssignment,
   onEditBrief,
   onOpenSubmitDeliverable,
 }) => {
@@ -56,16 +58,22 @@ export const ProjectBriefsTab: React.FC<ProjectBriefsTabProps> = ({
             Production Briefs &amp; Call Sheets
           </h1>
           <p className="text-xs text-[#EFCEA5]/70 mt-1">
-            Schedule shoot dates, issue team call sheets, outline required deliverables, and assign roster talent.
+            Schedule shoot dates, issue team call sheets, drop text assignments, and assign roster talent.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 self-start sm:self-auto flex-wrap">
+        <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
           <button
-            onClick={onOpenSubmitDeliverable}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-transparent text-[#EFCEA5] border border-[#EFCEA5]/30 hover:bg-[#EFCEA5]/10 transition-colors"
+            onClick={() => onOpenSubmitDeliverable()}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-transparent text-[#EFCEA5] border border-[#EFCEA5]/30 hover:bg-[#EFCEA5]/10 transition-colors"
           >
             <Send className="w-3.5 h-3.5" /> Submit Work
+          </button>
+          <button
+            onClick={onOpenTextAssignment || onOpenNewBrief}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/35 hover:bg-emerald-500/25 transition-all shadow-md"
+          >
+            <FileText className="w-3.5 h-3.5" /> Drop Text Assignment
           </button>
           <button
             onClick={onOpenNewBrief}
@@ -109,6 +117,11 @@ export const ProjectBriefsTab: React.FC<ProjectBriefsTabProps> = ({
                 {/* Badges & Status Selector */}
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div className="flex items-center gap-2 flex-wrap">
+                    {brief.isAssignment && (
+                      <span className="text-[0.68rem] px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 font-semibold uppercase tracking-wider flex items-center gap-1">
+                        <FileText className="w-3 h-3" /> Assignment
+                      </span>
+                    )}
                     <span className="text-[0.68rem] px-2.5 py-0.5 rounded-full bg-[#EFCEA5]/10 text-[#EFCEA5] border border-[#EFCEA5]/20 font-semibold uppercase tracking-wider">
                       {brief.discipline}
                     </span>

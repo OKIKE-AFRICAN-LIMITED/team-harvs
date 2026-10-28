@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Send, 
   MapPin, 
@@ -8,16 +8,18 @@ import {
   Download, 
   ExternalLink,
   Sparkles,
-  Users
+  Users,
+  Loader2
 } from 'lucide-react';
 import { ProjectBrief, CreativeAsset, MemberSubmission, Application } from '@/lib/workspaceStore';
+import { downloadFile } from '@/lib/downloadHelper';
 
 interface MemberWorkspaceViewProps {
   briefs: ProjectBrief[];
   assets: CreativeAsset[];
   submissions: MemberSubmission[];
   roster: Application[];
-  onOpenSubmitDeliverable: () => void;
+  onOpenSubmitDeliverable: (briefId?: string) => void;
 }
 
 export const MemberWorkspaceView: React.FC<MemberWorkspaceViewProps> = ({
@@ -27,6 +29,28 @@ export const MemberWorkspaceView: React.FC<MemberWorkspaceViewProps> = ({
   roster,
   onOpenSubmitDeliverable,
 }) => {
+  const [downloadingAssetId, setDownloadingAssetId] = useState<string | null>(null);
+
+  const handleDownloadAsset = async (ast: CreativeAsset) => {
+    if (!ast.downloadUrl || ast.downloadUrl === '#' || ast.downloadUrl.trim() === '') {
+      alert('This resource has no valid downloadable file attached.');
+      return;
+    }
+    setDownloadingAssetId(ast.id);
+    const ext = ast.fileType?.toLowerCase().includes('pdf') ? 'pdf' 
+      : ast.fileType?.toLowerCase().includes('jpg') || ast.fileType?.toLowerCase().includes('jpeg') ? 'jpg'
+      : ast.fileType?.toLowerCase().includes('png') ? 'png'
+      : 'pdf';
+    const filename = `${ast.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.${ext}`;
+    try {
+      await downloadFile(ast.downloadUrl, filename);
+    } catch (err) {
+      console.error('Download error:', err);
+    } finally {
+      setDownloadingAssetId(null);
+    }
+  };
+
   const activeBriefs = briefs.filter((b) => b.status === 'In Production' || b.status === 'Planning');
 
   return (
@@ -47,7 +71,7 @@ export const MemberWorkspaceView: React.FC<MemberWorkspaceViewProps> = ({
 
           <div className="mt-5 flex flex-wrap gap-3">
             <button
-              onClick={onOpenSubmitDeliverable}
+              onClick={() => onOpenSubmitDeliverable()}
               className="flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-[#EFCEA5] text-[#1F0205] hover:bg-[#F8F4EF] transition-all shadow-lg hover:scale-105"
             >
               <Send className="w-3.5 h-3.5" /> Submit Work / Drive Link
@@ -127,10 +151,10 @@ export const MemberWorkspaceView: React.FC<MemberWorkspaceViewProps> = ({
                     Lead: {brief.lead}
                   </span>
                   <button
-                    onClick={onOpenSubmitDeliverable}
+                    onClick={() => onOpenSubmitDeliverable(brief.id)}
                     className="flex items-center gap-1 text-xs text-[#EFCEA5] font-semibold hover:underline"
                   >
-                    <Send className="w-3 h-3" /> Submit Files for this Shoot &rarr;
+                    <Send className="w-3 h-3" /> {brief.isAssignment ? 'Submit Assignment Work \u2192' : 'Submit Files for this Shoot \u2192'}
                   </button>
                 </div>
               </div>
@@ -173,7 +197,7 @@ export const MemberWorkspaceView: React.FC<MemberWorkspaceViewProps> = ({
             </div>
 
             <button
-              onClick={onOpenSubmitDeliverable}
+              onClick={() => onOpenSubmitDeliverable()}
               className="w-full mt-4 py-2 rounded-xl bg-[#EFCEA5]/15 hover:bg-[#EFCEA5]/25 text-[#EFCEA5] text-xs font-semibold uppercase tracking-wider transition-colors"
             >
               + Submit New Work
@@ -196,13 +220,31 @@ export const MemberWorkspaceView: React.FC<MemberWorkspaceViewProps> = ({
                     <p className="text-[#F8F4EF] truncate font-medium">{ast.title}</p>
                     <span className="text-[0.68rem] text-[#EFCEA5]/60">{ast.fileType} &bull; {ast.fileSize}</span>
                   </div>
-                  <a
-                    href={ast.downloadUrl}
-                    className="p-1.5 rounded bg-white/5 hover:bg-[#EFCEA5] text-[#EFCEA5] hover:text-[#1F0205] transition-colors"
-                    title="Download"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                  </a>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => handleDownloadAsset(ast)}
+                      disabled={downloadingAssetId === ast.id}
+                      className="p-1.5 rounded bg-white/5 hover:bg-[#EFCEA5] text-[#EFCEA5] hover:text-[#1F0205] transition-colors disabled:opacity-50"
+                      title="Download Asset"
+                    >
+                      {downloadingAssetId === ast.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Download className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                    {ast.downloadUrl && ast.downloadUrl !== '#' && (
+                      <a
+                        href={ast.downloadUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 rounded bg-white/5 hover:bg-white/10 text-[#EFCEA5]/60 hover:text-[#EFCEA5] transition-colors"
+                        title="Open in new tab"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

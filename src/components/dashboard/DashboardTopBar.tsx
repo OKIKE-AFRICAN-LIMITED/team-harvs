@@ -29,7 +29,7 @@ interface DashboardTopBarProps {
   onOpenNewLook?: () => void;
   onOpenNewBrief?: () => void;
   onOpenNewAsset?: () => void;
-  onOpenSubmitDeliverable?: () => void;
+  onOpenSubmitDeliverable?: (briefId?: string) => void;
 }
 
 export const DashboardTopBar: React.FC<DashboardTopBarProps> = ({
@@ -133,7 +133,7 @@ export const DashboardTopBar: React.FC<DashboardTopBarProps> = ({
         ) : (
           onOpenSubmitDeliverable && (
             <button
-              onClick={onOpenSubmitDeliverable}
+              onClick={() => onOpenSubmitDeliverable()}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[0.68rem] font-bold uppercase tracking-wider bg-[#EFCEA5] text-[#1F0205] hover:bg-[#F8F4EF] transition-all shadow-md hover:scale-105"
             >
               <Send className="w-3 h-3" /> Submit Work

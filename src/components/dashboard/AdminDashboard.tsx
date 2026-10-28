@@ -54,6 +54,7 @@ import {
 import type { Profile } from '@/lib/supabase';
 import { uploadLocalFile } from '@/lib/fileUpload';
 import { repairEmbeddedMedia, type RepairProgress } from '@/lib/mediaRepair';
+import { downloadFile } from '@/lib/downloadHelper';
 import { DeliverableReviewModal } from './DeliverableReviewModal';
 
 export interface AdminDashboardProps {
@@ -68,6 +69,7 @@ export interface AdminDashboardProps {
   onNavigateTab?: (tab: any) => void;
   onOpenNewLook: () => void;
   onOpenNewBrief: () => void;
+  onOpenTextAssignment?: () => void;
   onOpenNewAsset: () => void;
   onSelectApplicant: (app: Application) => void;
   onPreviewLook: (work: LookbookWork) => void;
@@ -86,6 +88,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onNavigateTab,
   onOpenNewLook,
   onOpenNewBrief,
+  onOpenTextAssignment,
   onOpenNewAsset,
   onSelectApplicant,
   onPreviewLook,
@@ -113,6 +116,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [heroError, setHeroError] = useState<string | null>(null);
   const [repairState, setRepairState] = useState<RepairProgress | null>(null);
   const [isRepairing, setIsRepairing] = useState(false);
+  const [downloadingAssetId, setDownloadingAssetId] = useState<string | null>(null);
+
+  const handleDownloadAsset = async (asset: CreativeAsset) => {
+    if (!asset.downloadUrl || asset.downloadUrl === '#' || asset.downloadUrl.trim() === '') {
+      alert('This resource has no valid downloadable file attached yet.');
+      return;
+    }
+    setDownloadingAssetId(asset.id);
+    const ext = asset.fileType?.toLowerCase().includes('pdf') ? 'pdf' 
+      : asset.fileType?.toLowerCase().includes('jpg') || asset.fileType?.toLowerCase().includes('jpeg') ? 'jpg'
+      : asset.fileType?.toLowerCase().includes('png') ? 'png'
+      : 'pdf';
+    const filename = `${asset.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.${ext}`;
+    try {
+      await downloadFile(asset.downloadUrl, filename);
+    } catch (err) {
+      console.error('Download error:', err);
+    } finally {
+      setDownloadingAssetId(null);
+    }
+  };
 
   const heroNeedsRepair =
     workspaceStore.getSyncState().failedSections.includes('hero stream') ||
@@ -1264,19 +1288,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           ============================================================== */}
       {activeTab === 'briefs' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between pb-4 border-b border-[#EFCEA5]/15">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#EFCEA5]/15">
             <div>
               <h2 className="text-2xl font-serif text-[#F8F4EF]">Production Briefs &amp; Call Times</h2>
               <p className="text-xs text-[#EFCEA5]/70 mt-1">
-                Schedule shoot logistics, assign talent members, and specify call sheet requirements.
+                Schedule shoot logistics, drop text assignments, assign talent members, and track participation.
               </p>
             </div>
-            <button
-              onClick={onOpenNewBrief}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider bg-[#EFCEA5] text-[#1F0205] hover:bg-[#F8F4EF] transition-all shadow-md shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" /> Draft Brief
-            </button>
+            <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+              <button
+                onClick={onOpenTextAssignment || onOpenNewBrief}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/35 hover:bg-emerald-500/25 transition-all shadow-md"
+              >
+                <FileText className="w-3.5 h-3.5" /> Drop Text Assignment
+              </button>
+              <button
+                onClick={onOpenNewBrief}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider bg-[#EFCEA5] text-[#1F0205] hover:bg-[#F8F4EF] transition-all shadow-md shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" /> Draft Brief
+              </button>
+            </div>
           </div>
 
           {briefs.length === 0 ? (
@@ -1284,14 +1316,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <FolderKanban className="w-8 h-8 text-[#EFCEA5]/40 mx-auto" />
               <h3 className="text-lg font-serif text-[#F8F4EF]">No Production Briefs</h3>
               <p className="text-xs text-[#EFCEA5]/60 max-w-md mx-auto">
-                Schedule your first production brief with call times, location, and assigned collective talent.
+                Schedule your first production brief or drop a text assignment for collective talent.
               </p>
-              <button
-                onClick={onOpenNewBrief}
-                className="mt-3 px-5 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider bg-[#EFCEA5] text-[#1F0205]"
-              >
-                + Draft First Brief
-              </button>
+              <div className="flex items-center justify-center gap-3 pt-2">
+                <button
+                  onClick={onOpenTextAssignment || onOpenNewBrief}
+                  className="px-5 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                >
+                  + Drop Text Assignment
+                </button>
+                <button
+                  onClick={onOpenNewBrief}
+                  className="px-5 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider bg-[#EFCEA5] text-[#1F0205]"
+                >
+                  + Draft First Brief
+                </button>
+              </div>
             </div>
           ) : (
             <div className="space-y-4">
@@ -1302,9 +1342,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <span className="text-[0.65rem] text-[#EFCEA5]/70 uppercase tracking-widest font-semibold block mb-1">
-                        {brief.discipline} &bull; Lead: {brief.lead}
-                      </span>
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        {brief.isAssignment && (
+                          <span className="text-[0.62rem] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 uppercase font-semibold flex items-center gap-1">
+                            <FileText className="w-3 h-3" /> Assignment
+                          </span>
+                        )}
+                        <span className="text-[0.65rem] text-[#EFCEA5]/70 uppercase tracking-widest font-semibold block">
+                          {brief.discipline} &bull; Lead: {brief.lead}
+                        </span>
+                      </div>
                       <h3 className="text-xl font-serif text-[#F8F4EF]">{brief.title}</h3>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1659,9 +1706,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <h3 className="text-base font-serif text-[#F8F4EF]">{asset.title}</h3>
                   <div className="pt-3 border-t border-[#EFCEA5]/10 flex items-center justify-between text-xs text-[#EFCEA5]/70">
                     <span>{asset.fileType} &bull; {asset.fileSize}</span>
-                    <a href={asset.downloadUrl} className="text-[#EFCEA5] hover:underline flex items-center gap-1">
-                      <Download className="w-3.5 h-3.5" /> Download
-                    </a>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleDownloadAsset(asset)}
+                        disabled={downloadingAssetId === asset.id}
+                        className="text-[#EFCEA5] hover:text-white flex items-center gap-1 font-semibold transition-colors disabled:opacity-50"
+                      >
+                        {downloadingAssetId === asset.id ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Downloading...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-3.5 h-3.5" /> Download
+                          </>
+                        )}
+                      </button>
+                      {asset.downloadUrl && asset.downloadUrl !== '#' && (
+                        <a
+                          href={asset.downloadUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1 rounded text-[#EFCEA5]/60 hover:text-[#EFCEA5] transition-colors"
+                          title="Open or preview in new tab"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
