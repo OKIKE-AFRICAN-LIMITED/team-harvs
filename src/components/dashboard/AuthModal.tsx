@@ -60,16 +60,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           full_name: fullName.trim(),
           role,
           discipline,
+          status: role === 'admin' ? 'active' : 'pending',
         });
         if (error) {
           setErrorMsg(error);
         } else if (user) {
-          setSuccessMsg('Account created successfully! Check your email to confirm or sign in directly.');
+          setSuccessMsg(
+            role === 'admin'
+              ? 'Studio Director account created.'
+              : 'Account registered! Your profile is pending Studio Director approval before workspace access.'
+          );
           setTimeout(async () => {
             const profile = await authService.getProfile(user.id);
             onAuthSuccess(user, profile);
             onClose();
-          }, 1000);
+          }, 1200);
         }
       }
     } catch (err: any) {

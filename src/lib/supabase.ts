@@ -136,20 +136,24 @@ export const authService = {
   async signUp(
     email: string, 
     password: string, 
-    metadata: { full_name: string; role?: 'admin' | 'member'; discipline?: string }
+    metadata: { full_name: string; role?: 'admin' | 'member'; discipline?: string; status?: 'active' | 'inactive' | 'pending' }
   ): Promise<{ user: User | null; error: string | null }> {
     if (!isSupabaseConfigured) {
       return { user: null, error: 'Supabase credentials not configured yet.' };
     }
     const cleanEmail = email.trim().toLowerCase();
+    const assignedRole = metadata.role || 'member';
+    const assignedStatus = metadata.status || (assignedRole === 'admin' ? 'active' : 'pending');
+
     const { data, error } = await supabase.auth.signUp({
       email: cleanEmail,
       password: password.trim(),
       options: {
         data: {
           full_name: metadata.full_name?.trim() || '',
-          role: metadata.role || 'member',
+          role: assignedRole,
           discipline: metadata.discipline || 'Model',
+          status: assignedStatus,
         },
       },
     });

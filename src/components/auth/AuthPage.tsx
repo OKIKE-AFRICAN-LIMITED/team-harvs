@@ -141,12 +141,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           full_name: fullName.trim(),
           discipline,
           role: 'member',
+          status: 'pending',
         });
 
         if (error) {
           setErrorMsg(error);
         } else if (user) {
-          setSuccessMsg('Creative talent account created! If email confirmation is enabled on your Supabase project, please check your inbox to verify.');
+          setSuccessMsg('Account registered! Your application is pending Studio Director clearance. An administrator will review and activate your account.');
           setTimeout(async () => {
             const profile = await authService.getProfile(user.id);
             const userProfile: Profile = profile || {
@@ -155,10 +156,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               full_name: fullName || email.split('@')[0],
               role: 'member',
               discipline,
-              status: 'active'
+              status: 'pending'
             };
             onAuthSuccess(user, userProfile);
-          }, 1000);
+          }, 1200);
         }
       }
     } catch (err: any) {

@@ -1,4 +1,4 @@
-import { isSupabaseConfigured, supabaseService, type Profile } from './supabase';
+import { isSupabaseConfigured, supabaseService, authService, type Profile } from './supabase';
 
 export const DISCIPLINES = [
   'Models',
@@ -559,21 +559,23 @@ class WorkspaceStore {
     return [...this.users];
   }
 
-  public updateUserRole(userId: string, role: 'admin' | 'member') {
+  public async updateUserRole(userId: string, role: 'admin' | 'member') {
     this.users = this.users.map((u) => (u.id === userId ? { ...u, role } : u));
-    this.persist(STORAGE_KEYS.USERS, this.users);
+    this.safeCache(STORAGE_KEYS.USERS, this.users);
+    this.notify();
 
     if (isSupabaseConfigured) {
-      supabaseService.updateProfileRole(userId, role).catch(console.warn);
+      await authService.updateProfile(userId, { role }).catch(console.warn);
     }
   }
 
-  public updateUserStatus(userId: string, status: 'active' | 'inactive') {
+  public async updateUserStatus(userId: string, status: 'active' | 'inactive' | 'pending') {
     this.users = this.users.map((u) => (u.id === userId ? { ...u, status } : u));
-    this.persist(STORAGE_KEYS.USERS, this.users);
+    this.safeCache(STORAGE_KEYS.USERS, this.users);
+    this.notify();
 
     if (isSupabaseConfigured) {
-      supabaseService.updateProfileStatus(userId, status).catch(console.warn);
+      await authService.updateProfile(userId, { status }).catch(console.warn);
     }
   }
 

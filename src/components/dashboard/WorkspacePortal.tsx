@@ -7,7 +7,10 @@ import {
   X,
   Lock,
   ExternalLink,
-  ShieldAlert
+  ShieldAlert,
+  Clock,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { 
   workspaceStore, 
@@ -65,6 +68,7 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
   const [isSubmitDeliverableOpen, setIsSubmitDeliverableOpen] = useState(false);
   const [submitDeliverableBriefId, setSubmitDeliverableBriefId] = useState<string | undefined>(undefined);
   const [previewLookWork, setPreviewLookWork] = useState<LookbookWork | null>(null);
+  const [isCheckingApproval, setIsCheckingApproval] = useState(false);
 
   const handleOpenSubmitDeliverable = (targetBriefId?: string | unknown) => {
     setSubmitDeliverableBriefId(typeof targetBriefId === 'string' ? targetBriefId : undefined);
@@ -110,8 +114,8 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
               id: user.id,
               email: user.email || '',
               full_name: (user.user_metadata?.full_name as string) || user.email?.split('@')[0] || '',
-              role: 'member',
-              status: 'active'
+              role: (user.user_metadata?.role as any) || 'member',
+              status: (user.user_metadata?.status as any) || 'pending'
             });
           }
         }
@@ -136,8 +140,8 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
             id: session.user.id,
             email: session.user.email || '',
             full_name: (session.user.user_metadata?.full_name as string) || session.user.email?.split('@')[0] || '',
-            role: 'member',
-            status: 'active'
+            role: (session.user.user_metadata?.role as any) || 'member',
+            status: (session.user.user_metadata?.status as any) || 'pending'
           });
         }
       } else {
@@ -329,6 +333,102 @@ export const WorkspacePortal: React.FC<WorkspacePortalProps> = ({
               onSelectApplicant={(app) => setSelectedApplicant(app)}
               onPreviewLook={(work) => setPreviewLookWork(work)}
             />
+          ) : role !== 'admin' && currentProfile?.status === 'pending' ? (
+            /* PENDING APPROVAL GATE FOR NEW CREATIVES */
+            <div className="py-16 text-center max-w-xl mx-auto space-y-6 animate-fade-in">
+              <div className="relative w-20 h-20 rounded-full bg-gradient-to-b from-amber-950/60 to-black border border-amber-500/40 flex items-center justify-center mx-auto text-amber-300 shadow-2xl">
+                <Clock className="w-9 h-9 animate-pulse" />
+                <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-4 w-4 bg-amber-500"></span>
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-[0.68rem] tracking-[0.24em] uppercase text-amber-400 font-mono font-semibold block">
+                  Studio Admission // Awaiting Director Clearance
+                </span>
+                <h2 className="text-3xl sm:text-4xl font-serif text-[#F8F4EF]">
+                  Membership Awaiting Approval
+                </h2>
+                <p className="text-xs sm:text-sm text-[#EFCEA5]/80 leading-relaxed font-sans pt-1">
+                  Welcome to Team Harvs, <strong className="text-white">{currentProfile?.full_name || currentUser?.email}</strong>. As a curated creative studio, all new registrations must be approved by our Studio Directors before workspace call sheets and production briefs are unlocked.
+                </p>
+              </div>
+
+              {/* Status Verification Card */}
+              <div className="p-5 rounded-2xl bg-[#170204] border border-amber-500/30 text-left space-y-3 shadow-xl max-w-md mx-auto">
+                <div className="flex items-center justify-between pb-3 border-b border-[#EFCEA5]/10">
+                  <span className="text-[0.68rem] uppercase tracking-wider text-[#EFCEA5]/60 font-semibold">Account Review Status</span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[0.65rem] font-bold uppercase tracking-wider bg-amber-950 text-amber-300 border border-amber-500/40 flex items-center gap-1">
+                    <Clock className="w-3 h-3" /> Pending Director Approval
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-[0.65rem] text-[#EFCEA5]/50 block">Registered Email</span>
+                    <span className="text-[#F8F4EF] font-mono text-[0.75rem] truncate block">{currentUser?.email}</span>
+                  </div>
+                  <div>
+                    <span className="text-[0.65rem] text-[#EFCEA5]/50 block">Creative Discipline</span>
+                    <span className="text-[#EFCEA5] font-semibold">{currentProfile?.discipline || 'Talent'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  onClick={async () => {
+                    setIsCheckingApproval(true);
+                    try {
+                      await workspaceStore.syncFromSupabase();
+                      if (currentUser?.id) {
+                        const updated = await authService.getProfile(currentUser.id);
+                        if (updated) setCurrentProfile(updated);
+                      }
+                    } finally {
+                      setTimeout(() => setIsCheckingApproval(false), 600);
+                    }
+                  }}
+                  disabled={isCheckingApproval}
+                  className="w-full sm:w-auto px-6 py-3 rounded-full text-xs font-bold uppercase tracking-wider bg-[#EFCEA5] text-[#1F0205] hover:bg-[#F8F4EF] transition-all shadow-xl flex items-center justify-center gap-2"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isCheckingApproval ? 'animate-spin' : ''}`} />
+                  {isCheckingApproval ? 'Checking Status...' : 'Check Approval Status'}
+                </button>
+                <button
+                  onClick={handleSignOut}
+                  className="w-full sm:w-auto px-6 py-3 rounded-full text-xs font-semibold uppercase tracking-wider bg-white/5 hover:bg-white/10 text-[#EFCEA5] border border-[#EFCEA5]/20 transition-all"
+                >
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          ) : role !== 'admin' && currentProfile?.status === 'inactive' ? (
+            /* DEACTIVATED GATE */
+            <div className="py-20 text-center max-w-xl mx-auto space-y-6 animate-fade-in">
+              <div className="w-16 h-16 rounded-full bg-rose-950/60 border border-rose-500/30 flex items-center justify-center mx-auto text-rose-300 shadow-xl">
+                <ShieldAlert className="w-7 h-7" />
+              </div>
+              <div className="space-y-2">
+                <span className="text-[0.68rem] tracking-[0.24em] uppercase text-rose-400 font-mono font-semibold block">
+                  Studio Clearance Revoked
+                </span>
+                <h2 className="text-3xl font-serif text-[#F8F4EF]">
+                  Account Access Inactive
+                </h2>
+                <p className="text-xs sm:text-sm text-[#EFCEA5]/70 leading-relaxed font-sans pt-1">
+                  This creative profile has been placed on inactive status by Studio Directors. Please contact management if you believe this is in error.
+                </p>
+              </div>
+              <button
+                onClick={handleSignOut}
+                className="px-6 py-3 rounded-full text-xs font-bold uppercase tracking-wider bg-white/5 hover:bg-white/10 text-[#EFCEA5] border border-[#EFCEA5]/20 transition-all"
+              >
+                Sign Out
+              </button>
+            </div>
           ) : (
             /* MEMBER DASHBOARD for Creative Talent */
             <MemberDashboard

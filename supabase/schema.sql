@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     portfolio_url TEXT,
     avatar_url TEXT,
     bio TEXT,
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'pending')),
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('active', 'inactive', 'pending')),
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -29,13 +29,14 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.profiles (id, email, full_name, role, discipline)
+    INSERT INTO public.profiles (id, email, full_name, role, discipline, status)
     VALUES (
         NEW.id,
         NEW.email,
         COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
-        'member',
-        COALESCE(NEW.raw_user_meta_data->>'discipline', 'Models')
+        COALESCE(NEW.raw_user_meta_data->>'role', 'member'),
+        COALESCE(NEW.raw_user_meta_data->>'discipline', 'Models'),
+        COALESCE(NEW.raw_user_meta_data->>'status', 'pending')
     )
     ON CONFLICT (id) DO UPDATE
     SET 

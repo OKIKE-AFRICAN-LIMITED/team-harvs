@@ -26,6 +26,7 @@ import {
   UserX,
   UploadCloud,
   Check,
+  X,
   Loader2,
   ChevronDown,
   ChevronUp,
@@ -102,7 +103,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // USER MANAGEMENT STATE
   const [userSearch, setUserSearch] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'admin' | 'member'>('all');
-  const [userStatusFilter, setUserStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [userStatusFilter, setUserStatusFilter] = useState<'all' | 'active' | 'inactive' | 'pending'>('all');
   const [userDisciplineFilter, setUserDisciplineFilter] = useState<string>('all');
 
   // HERO STREAM CMS STATE
@@ -241,6 +242,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  // Handle User Approval
+  const handleApproveUser = (user: Profile) => {
+    if (window.confirm(`Approve ${user.full_name || user.email} and grant full studio workspace access?`)) {
+      workspaceStore.updateUserStatus(user.id, 'active');
+    }
+  };
+
+  // Handle User Rejection
+  const handleRejectUser = (user: Profile) => {
+    if (window.confirm(`Reject ${user.full_name || user.email}'s registration and mark as inactive?`)) {
+      workspaceStore.updateUserStatus(user.id, 'inactive');
+    }
+  };
+
   const flashSaved = (id: string) => {
     setSavedHeroItemId(id);
     setTimeout(() => setSavedHeroItemId(null), 3500);
@@ -326,6 +341,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <img src="/assets/th-monogram-cream.png" alt="" className="w-72 h-72 object-contain" />
             </div>
           </div>
+
+          {/* Pending User Approvals Action Banner */}
+          {users.filter((u) => u.status === 'pending').length > 0 && (
+            <div className="p-5 rounded-2xl bg-gradient-to-r from-amber-950/70 via-black to-[#170204] border border-amber-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl animate-fade-in">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 shrink-0">
+                  <Clock className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-serif text-[#F8F4EF] font-medium">
+                    {users.filter((u) => u.status === 'pending').length} Creative Registration{users.filter((u) => u.status === 'pending').length > 1 ? 's' : ''} Awaiting Approval
+                  </h3>
+                  <p className="text-xs text-[#EFCEA5]/70">
+                    New accounts cannot view call sheets or submit work until an administrator grants studio access.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setUserStatusFilter('pending');
+                  onNavigateTab && onNavigateTab('users');
+                }}
+                className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-[#170204] font-bold text-xs uppercase tracking-wider transition-all shadow-md shrink-0 flex items-center gap-1.5"
+              >
+                Review &amp; Approve ({users.filter((u) => u.status === 'pending').length}) &rarr;
+              </button>
+            </div>
+          )}
 
           {/* Key Metric Highlights Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -597,13 +640,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {/* Quick Metrics Pills */}
             <div className="flex items-center gap-2 flex-wrap">
               <div className="px-3.5 py-1.5 rounded-xl bg-black/40 border border-[#EFCEA5]/15 text-xs text-[#EFCEA5]/80">
-                Total Users: <strong className="text-[#F8F4EF]">{users.length}</strong>
+                Total: <strong className="text-[#F8F4EF]">{users.length}</strong>
+              </div>
+              <button
+                onClick={() => setUserStatusFilter(userStatusFilter === 'pending' ? 'all' : 'pending')}
+                className={`px-3.5 py-1.5 rounded-xl border text-xs transition-all flex items-center gap-1.5 ${
+                  userStatusFilter === 'pending'
+                    ? 'bg-amber-500 text-black font-bold border-amber-400 shadow-md'
+                    : users.filter((u) => u.status === 'pending').length > 0
+                      ? 'bg-amber-950/60 text-amber-300 border-amber-500/40 hover:bg-amber-900/60'
+                      : 'bg-black/40 text-[#EFCEA5]/80 border-[#EFCEA5]/15'
+                }`}
+              >
+                <Clock className="w-3 h-3" />
+                Pending: <strong className={userStatusFilter === 'pending' ? 'text-black' : 'text-amber-300'}>{users.filter((u) => u.status === 'pending').length}</strong>
+              </button>
+              <div className="px-3.5 py-1.5 rounded-xl bg-black/40 border border-[#EFCEA5]/15 text-xs text-[#EFCEA5]/80">
+                Active: <strong className="text-emerald-300">{users.filter((u) => u.status === 'active').length}</strong>
               </div>
               <div className="px-3.5 py-1.5 rounded-xl bg-black/40 border border-[#EFCEA5]/15 text-xs text-[#EFCEA5]/80">
                 Directors: <strong className="text-amber-300">{users.filter((u) => u.role === 'admin').length}</strong>
-              </div>
-              <div className="px-3.5 py-1.5 rounded-xl bg-black/40 border border-[#EFCEA5]/15 text-xs text-[#EFCEA5]/80">
-                Members: <strong className="text-emerald-300">{users.filter((u) => u.role === 'member').length}</strong>
               </div>
               <button
                 id="refresh-users-btn"
@@ -649,6 +705,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 className="px-3 py-2 rounded-xl bg-[#170204] border border-[#EFCEA5]/20 text-xs text-[#EFCEA5] focus:outline-none focus:border-[#EFCEA5]"
               >
                 <option value="all">All Statuses</option>
+                <option value="pending">⏳ Pending Approval ({users.filter((u) => u.status === 'pending').length})</option>
                 <option value="active">Active Accounts</option>
                 <option value="inactive">Deactivated</option>
               </select>
@@ -733,12 +790,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </span>
 
                         {/* Status Badge */}
-                        <span className={`text-[0.62rem] px-2 py-0.5 rounded uppercase font-semibold ${
-                          usr.status === 'inactive'
-                            ? 'bg-rose-950 text-rose-300 border border-rose-800/40'
-                            : 'bg-emerald-950 text-emerald-300 border border-emerald-800/40'
+                        <span className={`text-[0.62rem] px-2.5 py-0.5 rounded-full uppercase font-bold tracking-wider flex items-center gap-1 ${
+                          usr.status === 'pending'
+                            ? 'bg-amber-950 text-amber-300 border border-amber-500/50 animate-pulse'
+                            : usr.status === 'inactive'
+                              ? 'bg-rose-950 text-rose-300 border border-rose-800/40'
+                              : 'bg-emerald-950 text-emerald-300 border border-emerald-800/40'
                         }`}>
-                          {usr.status || 'active'}
+                          {usr.status === 'pending' ? '⏳ Pending Approval' : (usr.status || 'active')}
                         </span>
 
                         {usr.discipline && (
@@ -783,33 +842,55 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </a>
                     )}
 
-                    {/* Toggle Role Button */}
-                    <button
-                      onClick={() => handleToggleUserRole(usr)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-1 ${
-                        usr.role === 'admin'
-                          ? 'bg-amber-950/60 hover:bg-amber-900 text-amber-200 border border-amber-500/30'
-                          : 'bg-white/5 hover:bg-[#EFCEA5] text-[#EFCEA5] hover:text-[#1F0205] border border-[#EFCEA5]/20'
-                      }`}
-                      title={usr.role === 'admin' ? 'Click to demote to Member' : 'Click to promote to Director'}
-                    >
-                      <Shield className="w-3 h-3" />
-                      {usr.role === 'admin' ? 'Demote to Member' : 'Promote to Director'}
-                    </button>
+                    {/* User Action Controls */}
+                    {usr.status === 'pending' ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleApproveUser(usr)}
+                          className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-md"
+                          title="Approve registration and grant full studio access"
+                        >
+                          <Check className="w-3.5 h-3.5" /> Approve Access
+                        </button>
+                        <button
+                          onClick={() => handleRejectUser(usr)}
+                          className="px-3 py-1.5 rounded-xl bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-500/30 text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-1"
+                          title="Reject registration"
+                        >
+                          <X className="w-3.5 h-3.5" /> Reject
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Toggle Role Button */}
+                        <button
+                          onClick={() => handleToggleUserRole(usr)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-1 ${
+                            usr.role === 'admin'
+                              ? 'bg-amber-950/60 hover:bg-amber-900 text-amber-200 border border-amber-500/30'
+                              : 'bg-white/5 hover:bg-[#EFCEA5] text-[#EFCEA5] hover:text-[#1F0205] border border-[#EFCEA5]/20'
+                          }`}
+                          title={usr.role === 'admin' ? 'Click to demote to Member' : 'Click to promote to Director'}
+                        >
+                          <Shield className="w-3 h-3" />
+                          {usr.role === 'admin' ? 'Demote to Member' : 'Promote to Director'}
+                        </button>
 
-                    {/* Toggle Status Button */}
-                    <button
-                      onClick={() => handleToggleUserStatus(usr)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-1 ${
-                        usr.status === 'inactive'
-                          ? 'bg-emerald-950/60 hover:bg-emerald-900 text-emerald-200 border border-emerald-500/30'
-                          : 'bg-rose-950/40 hover:bg-rose-900 text-rose-300 border border-rose-500/30'
-                      }`}
-                      title={usr.status === 'inactive' ? 'Click to activate account' : 'Click to deactivate account'}
-                    >
-                      {usr.status === 'inactive' ? <UserCheck className="w-3 h-3" /> : <UserX className="w-3 h-3" />}
-                      {usr.status === 'inactive' ? 'Activate' : 'Deactivate'}
-                    </button>
+                        {/* Toggle Status Button */}
+                        <button
+                          onClick={() => handleToggleUserStatus(usr)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-1 ${
+                            usr.status === 'inactive'
+                              ? 'bg-emerald-950/60 hover:bg-emerald-900 text-emerald-200 border border-emerald-500/30'
+                              : 'bg-rose-950/40 hover:bg-rose-900 text-rose-300 border border-rose-500/30'
+                          }`}
+                          title={usr.status === 'inactive' ? 'Click to activate account' : 'Click to deactivate account'}
+                        >
+                          {usr.status === 'inactive' ? <UserCheck className="w-3 h-3" /> : <UserX className="w-3 h-3" />}
+                          {usr.status === 'inactive' ? 'Activate' : 'Deactivate'}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
